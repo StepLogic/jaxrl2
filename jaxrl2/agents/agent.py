@@ -15,9 +15,7 @@ class Agent(object):
         actions = eval_actions_jit(
             self._actor.apply_fn, self._actor.params, observations
         )
-
         return np.asarray(actions)
-
     def eval_log_probs(self, batch: DatasetDict) -> float:
         return eval_log_prob_jit(self._actor.apply_fn, self._actor.params, batch)
 

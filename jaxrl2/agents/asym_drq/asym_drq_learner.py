@@ -22,7 +22,8 @@ from jaxrl2.data.dataset import DatasetDict
 from jaxrl2.networks.encoders import D4PGEncoder, ResNetV2Encoder
 from jaxrl2.networks.normal_tanh_policy import NormalTanhPolicy
 from jaxrl2.networks.pixel_multiplexer import PixelMultiplexer
-from jaxrl2.networks.values import StateActionEnsemble
+from jaxrl2.networks.asym_pixel_multiplexer import AsymmetricPixelMultiplexer
+from jaxrl2.networks.values import AsymmetricStateActionEnsemble
 from jaxrl2.types import Params, PRNGKey
 from jaxrl2.utils.target_update import soft_target_update
 from functools import partial
@@ -122,7 +123,7 @@ def _update_jit(
     )
 
 
-class DrQLearner(Agent):
+class AsymmetricDrQLearner(Agent):
     def __init__(
         self,
         seed: int,
@@ -149,7 +150,6 @@ class DrQLearner(Agent):
         """
         An implementation of the version of Soft-Actor-Critic described in https://arxiv.org/abs/1812.05905
         """
-
         action_dim = actions.shape[-1]
 
         if target_entropy is None:
@@ -178,9 +178,8 @@ class DrQLearner(Agent):
             encoder_def = partial(ResNetV2Encoder, stage_sizes=(2, 2, 2, 2))
         elif encoder == "embeddings":
             encoder_def = partial(PlaceholderEncoder)
-
         policy_def = NormalTanhPolicy(hidden_dims, action_dim)
-        actor_def = PixelMultiplexer(
+        actor_def = AsymmetricPixelMultiplexer(
             encoder=encoder_def,
             network=policy_def,
             latent_dim=latent_dim,
@@ -192,9 +191,8 @@ class DrQLearner(Agent):
             params=actor_params,
             tx=optax.adam(learning_rate=actor_lr),
         )
-
-        critic_def = StateActionEnsemble(hidden_dims, num_qs=min(num_qs,2))
-        critic_def = PixelMultiplexer(
+        critic_def = AsymmetricStateActionEnsemble(hidden_dims, num_qs=min(num_qs,2))
+        critic_def = AsymmetricPixelMultiplexer(
             encoder=encoder_def, network=critic_def, latent_dim=latent_dim
         )
         critic_params = critic_def.init(critic_key, observations, actions)["params"]
@@ -204,7 +202,6 @@ class DrQLearner(Agent):
             tx=optax.adam(learning_rate=critic_lr),
         )
         target_critic_params = copy.deepcopy(critic_params)
-
         temp_def = Temperature(init_temperature)
         temp_params = temp_def.init(temp_key)["params"]
         temp = TrainState.create(

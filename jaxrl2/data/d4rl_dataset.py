@@ -1,12 +1,12 @@
 import d4rl
-import gym
+import gymnasium
 import numpy as np
 
 from jaxrl2.data.dataset import Dataset
 
 
 class D4RLDataset(Dataset):
-    def __init__(self, env: gym.Env, clip_to_eps: bool = True, eps: float = 1e-5):
+    def __init__(self, env: gymnasium.Env, clip_to_eps: bool = True, eps: float = 1e-5):
         dataset_dict = d4rl.qlearning_dataset(env)
 
         if clip_to_eps:

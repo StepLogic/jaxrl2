@@ -58,11 +58,12 @@ from jaxrl2.utils.misc import is_image_space, process_observation
 #             return self.network(x, actions, training=training)
 
 
-class PixelMultiplexer(nn.Module):
+class AsymmetricPixelMultiplexer(nn.Module):
     encoder: nn.Module
     network: nn.Module
     latent_dim: int
     stop_gradient: bool = False
+    exclude_states:bool=False
     # siamese:bool=False
     # def setup(self):
     #     # Submodule names are derived by the attributes you assign to. In this
@@ -86,30 +87,33 @@ class PixelMultiplexer(nn.Module):
         # Convert to FrozenDict if needed
         if not isinstance(observations, FrozenDict):
             observations = FrozenDict(observations)
-        processed_features = []
-        # Process each observation
+        # processed_features = []
+        pixels=None
+        states=None
         for key, value in observations.items():
             if is_image_space(value):
-                x = self.encoder(name=f"encoder_{key}")(value)
+                pixels = self.encoder(name=f"encoder_{key}")(value)
                 if self.stop_gradient:
-                    x = jax.lax.stop_gradient(x)
-                x = nn.Dense(self.latent_dim, kernel_init=default_init())(x)
+                    pixels = jax.lax.stop_gradient(pixels)
+                pixels = nn.Dense(self.latent_dim, kernel_init=default_init())(pixels)
+                pixels = nn.LayerNorm()(pixels)
+                pixels = nn.tanh(pixels)
             else:
+                if self.exclude_states:
+                    continue
                 # Handle continuous observations
-                x = nn.Dense(self.latent_dim, kernel_init=default_init())(value)
-            
-            x = nn.LayerNorm()(x)
-            x = nn.tanh(x)
-            processed_features.append(x)
-        
-        # Combine all processed features
-        if len(processed_features) > 1:
-            x = jnp.concatenate(processed_features, axis=-1)
-        else:
-            x = processed_features[0]
+                states = nn.Dense(self.latent_dim, kernel_init=default_init())(value)
+                states = nn.LayerNorm()(states)
+                states = nn.tanh(states)
         
         # Pass through the network
-        if actions is None:
-            return self.network(x, training=training)
+        if self.exclude_states:
+            if actions is None:
+                return self.network(pixels, training=training)
+            else:
+                return self.network(pixels, actions, training=training)
         else:
-            return self.network(x, actions, training=training)
+            if actions is None:
+                return self.network(pixels,states,training=training)
+            else:
+                return self.network(pixels,states,actions, training=training)

@@ -1,7 +1,7 @@
 import collections
 import glob
 
-import gym
+import gymnasium
 import jax
 import numpy as np
 
@@ -11,8 +11,8 @@ from jaxrl2.data.memory_efficient_replay_buffer import MemoryEfficientReplayBuff
 class OfflineMemoryEfficientReplayBuffer(MemoryEfficientReplayBuffer):
     def __init__(
         self,
-        observation_space: gym.Space,
-        action_space: gym.Space,
+        observation_space: gymnasium.Space,
+        action_space: gymnasium.Space,
         capacity: int,
         include_pixels: bool = True,
         data_url: str = "",

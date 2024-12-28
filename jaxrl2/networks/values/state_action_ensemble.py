@@ -13,7 +13,6 @@ class StateActionEnsemble(nn.Module):
 
     @nn.compact
     def __call__(self, states, actions, training: bool = False):
-
         VmapCritic = nn.vmap(
             StateActionValue,
             variable_axes={"params": 0},

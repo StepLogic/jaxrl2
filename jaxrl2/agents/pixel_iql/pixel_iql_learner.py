@@ -16,12 +16,13 @@ from jaxrl2.agents.drq.drq_learner import _share_encoder, _unpack
 from jaxrl2.agents.iql.actor_updater import update_actor
 from jaxrl2.agents.iql.critic_updater import update_q, update_v
 from jaxrl2.data.dataset import DatasetDict
-from jaxrl2.networks.encoders import D4PGEncoder
+from jaxrl2.networks.encoders import D4PGEncoder,ResNetV2Encoder,PlaceholderEncoder
 from jaxrl2.networks.normal_policy import UnitStdNormalPolicy
 from jaxrl2.networks.pixel_multiplexer import PixelMultiplexer
 from jaxrl2.networks.values import StateActionEnsemble, StateValue
 from jaxrl2.types import Params, PRNGKey
 from jaxrl2.utils.target_update import soft_target_update
+from functools import partial
 
 
 @functools.partial(jax.jit, static_argnames=("critic_reduction", "share_encoder"))
@@ -105,6 +106,7 @@ class PixelIQLLearner(Agent):
         critic_reduction: str = "min",
         dropout_rate: Optional[float] = None,
         share_encoder: bool = False,
+        encoder: str = "d4pg",
     ):
         """
         An implementation of the version of Soft-Actor-Critic described in https://arxiv.org/abs/1812.05905
@@ -122,7 +124,18 @@ class PixelIQLLearner(Agent):
         rng = jax.random.PRNGKey(seed)
         rng, actor_key, critic_key, value_key = jax.random.split(rng, 4)
 
-        encoder_def = D4PGEncoder(cnn_features, cnn_filters, cnn_strides, cnn_padding)
+        if encoder == "d4pg":
+            encoder_def = partial(
+                D4PGEncoder,
+                features=cnn_features,
+                filters=cnn_filters,
+                strides=cnn_strides,
+                padding=cnn_padding,
+            )
+        elif encoder == "resnet":
+            encoder_def = partial(ResNetV2Encoder, stage_sizes=(2, 2, 2, 2))
+        elif encoder == "embeddings":
+            encoder_def = partial(PlaceholderEncoder)
 
         if decay_steps is not None:
             actor_lr = optax.cosine_decay_schedule(actor_lr, decay_steps)

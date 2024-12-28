@@ -13,7 +13,7 @@ from jaxrl2.agents import DrQLearner
 from jaxrl2.data import MemoryEfficientReplayBuffer
 from jaxrl2.evaluation import evaluate
 from jaxrl2.wrappers import wrap_pixels
-
+from flax.core.frozen_dict import freeze
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string("env_name", "cheetah-run-v0", "Environment name.")
@@ -136,7 +136,7 @@ def main(_):
 
         if i >= FLAGS.start_training:
             batch = next(replay_buffer_iterator)
-            update_info = agent.update(batch)
+            update_info = agent.update(freeze(batch))
 
             if i % FLAGS.log_interval == 0:
                 for k, v in update_info.items():

@@ -1,5 +1,6 @@
 """Implementations of algorithms for continuous control."""
 
+from functools import partial
 from typing import Dict, Optional, Sequence, Tuple, Union
 
 import jax
@@ -12,7 +13,7 @@ from jaxrl2.agents.agent import Agent
 from jaxrl2.agents.bc.actor_updater import log_prob_update
 from jaxrl2.agents.drq.augmentations import batched_random_crop
 from jaxrl2.data.dataset import DatasetDict
-from jaxrl2.networks.encoders import D4PGEncoder, ResNetV2Encoder
+from jaxrl2.networks.encoders import D4PGEncoder, ResNetV2Encoder,PlaceholderEncoder
 from jaxrl2.networks.normal_policy import UnitStdNormalPolicy
 from jaxrl2.networks.pixel_multiplexer import PixelMultiplexer
 from jaxrl2.types import Params, PRNGKey
@@ -59,11 +60,17 @@ class PixelBCLearner(Agent):
         rng, actor_key = jax.random.split(rng)
 
         if encoder == "d4pg":
-            encoder_def = D4PGEncoder(
-                cnn_features, cnn_filters, cnn_strides, cnn_padding
+            encoder_def = partial(
+                D4PGEncoder,
+                features=cnn_features,
+                filters=cnn_filters,
+                strides=cnn_strides,
+                padding=cnn_padding,
             )
         elif encoder == "resnet":
-            encoder_def = ResNetV2Encoder((2, 2, 2, 2))
+            encoder_def = partial(ResNetV2Encoder, stage_sizes=(2, 2, 2, 2))
+        elif encoder == "embeddings":
+            encoder_def = partial(PlaceholderEncoder)
 
         if decay_steps is not None:
             actor_lr = optax.cosine_decay_schedule(actor_lr, decay_steps)

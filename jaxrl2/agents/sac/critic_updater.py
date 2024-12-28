@@ -19,6 +19,7 @@ def update_critic(
     backup_entropy: bool,
     critic_reduction: str,
 ) -> Tuple[TrainState, Dict[str, float]]:
+    # breakpoint()
     dist = actor.apply_fn({"params": actor.params}, batch["next_observations"])
     next_actions, next_log_probs = dist.sample_and_log_prob(seed=key)
     next_qs = target_critic.apply_fn(

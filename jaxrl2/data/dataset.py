@@ -2,9 +2,18 @@ from typing import Dict, Iterable, Optional, Tuple, Union
 
 import numpy as np
 from flax.core import frozen_dict
-from gym.utils import seeding
+from gymnasium.utils import seeding
 
 from jaxrl2.types import DataType
+from functools import partial
+from random import sample
+from typing import Dict, Iterable, Optional, Tuple, Union
+
+import jax
+import jax.numpy as jnp
+import numpy as np
+from flax.core import frozen_dict
+from gym.utils import seeding
 
 DatasetDict = Dict[str, DataType]
 
@@ -57,6 +66,7 @@ class Dataset(object):
         # Seeding similar to OpenAI Gym:
         # https://github.com/openai/gym/blob/master/gym/spaces/space.py#L46
         self._np_random = None
+        self._seed = None
         if seed is not None:
             self.seed(seed)
 
@@ -67,8 +77,8 @@ class Dataset(object):
         return self._np_random
 
     def seed(self, seed: Optional[int] = None) -> list:
-        self._np_random, seed = seeding.np_random(seed)
-        return [seed]
+        self._np_random, self._seed = seeding.np_random(seed)
+        return [self._seed]
 
     def __len__(self) -> int:
         return self.dataset_len
@@ -97,6 +107,31 @@ class Dataset(object):
                 batch[k] = self.dataset_dict[k][indx]
 
         return frozen_dict.freeze(batch)
+
+    def sample_jax(self, batch_size: int, keys: Optional[Iterable[str]] = None):
+        if not hasattr(self, "rng"):
+            self.rng = jax.random.PRNGKey(self._seed or 42)
+
+            if keys is None:
+                keys = self.dataset_dict.keys()
+
+            jax_dataset_dict = {k: self.dataset_dict[k] for k in keys}
+            jax_dataset_dict = jax.device_put(jax_dataset_dict)
+
+            @jax.jit
+            def _sample_jax(rng):
+                key, rng = jax.random.split(rng)
+                indx = jax.random.randint(
+                    key, (batch_size,), minval=0, maxval=len(self)
+                )
+                return rng, jax.tree_map(
+                    lambda d: jnp.take(d, indx, axis=0), jax_dataset_dict
+                )
+
+            self._sample_jax = _sample_jax
+
+        self.rng, sample = self._sample_jax(self.rng)
+        return sample
 
     def split(self, ratio: float) -> Tuple["Dataset", "Dataset"]:
         assert 0 < ratio and ratio < 1
@@ -132,10 +167,10 @@ class Dataset(object):
         return episode_starts, episode_ends, episode_returns
 
     def filter(
-        self, percentile: Optional[float] = None, threshold: Optional[float] = None
+        self, take_top: Optional[float] = None, threshold: Optional[float] = None
     ):
-        assert (percentile is None and threshold is not None) or (
-            percentile is not None and threshold is None
+        assert (take_top is None and threshold is not None) or (
+            take_top is not None and threshold is None
         )
 
         (
@@ -144,8 +179,8 @@ class Dataset(object):
             episode_returns,
         ) = self._trajectory_boundaries_and_returns()
 
-        if percentile is not None:
-            threshold = np.percentile(episode_returns, 100 - percentile)
+        if take_top is not None:
+            threshold = np.percentile(episode_returns, 100 - take_top)
 
         bool_indx = np.full((len(self),), False, dtype=bool)
 

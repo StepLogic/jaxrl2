@@ -2,11 +2,11 @@ import collections
 import copy
 from typing import Iterable, Optional
 
-import gym
+import gymnasium
 import jax
 import numpy as np
 from flax.core import frozen_dict
-from gym.spaces import Box
+from gymnasium.spaces import Box
 
 from jaxrl2.data.dataset import DatasetDict, _sample
 from jaxrl2.data.replay_buffer import ReplayBuffer
@@ -14,7 +14,7 @@ from jaxrl2.data.replay_buffer import ReplayBuffer
 
 class MemoryEfficientReplayBuffer(ReplayBuffer):
     def __init__(
-        self, observation_space: gym.Space, action_space: gym.Space, capacity: int
+        self, observation_space: gymnasium.Space, action_space: gymnasium.Space, capacity: int
     ):
 
         pixel_obs_space = observation_space.spaces["pixels"]
@@ -23,7 +23,7 @@ class MemoryEfficientReplayBuffer(ReplayBuffer):
         low = pixel_obs_space.low[..., 0]
         high = pixel_obs_space.high[..., 0]
         unstacked_pixel_obs_space = Box(low=low, high=high, dtype=pixel_obs_space.dtype)
-        observation_space = copy.deepcopy(observation_space)
+        observation_space = copy.copy(observation_space)
         observation_space.spaces["pixels"] = unstacked_pixel_obs_space
 
         self._first = True
@@ -31,7 +31,7 @@ class MemoryEfficientReplayBuffer(ReplayBuffer):
 
         next_observation_space_dict = copy.deepcopy(observation_space.spaces)
         next_observation_space_dict.pop("pixels")
-        next_observation_space = gym.spaces.Dict(next_observation_space_dict)
+        next_observation_space = gymnasium.spaces.Dict(next_observation_space_dict)
 
         super().__init__(
             observation_space,
