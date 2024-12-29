@@ -78,14 +78,12 @@ import ssl
 import os
 
 from PIL import Image
-import torch
-from torch.utils.data import Dataset
-
-
+# import torch
+# from torch.utils.data import Dataset
 
 import numpy as np
 from jax.tree_util import tree_map
-from torch.utils import data
+# from torch.utils import data
 import os
 from flax.core.frozen_dict import unfreeze
 from flax.training import checkpoints

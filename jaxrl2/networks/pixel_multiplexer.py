@@ -90,8 +90,14 @@ class PixelMultiplexer(nn.Module):
         # Process each observation
         for key, value in observations.items():
             if is_image_space(value):
-                if np.max(value)>1.0:#normalize
-                    value=(value/255).astype(jnp.float32)
+                # if jnp.max(value)>1.0:#normalize
+                #     value=(value/255).astype(jnp.float32)
+                value = jax.lax.cond(
+                    jnp.max(value) > 1.0,
+                    lambda x: (x / 255).astype(jnp.float32),  # true_fn: normalize
+                    lambda x: x.astype(jnp.float32),               # false_fn: keep as is
+                    value
+                )
                 x = self.encoder(name=f"encoder_{key}")(value)
                 if self.stop_gradient:
                     x = jax.lax.stop_gradient(x)

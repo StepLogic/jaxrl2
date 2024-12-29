@@ -32,8 +32,8 @@ class FrameStack(gym.Wrapper):
         # print(self.observation_space["obs"].sample().shape)
         self._frames = collections.deque(maxlen=num_stack)
 
-    def reset(self,*args,**kwargs):
-        obs,info= self.env.reset(*args,**kwargs)
+    def reset(self,**kwargs):
+        obs,info= self.env.reset(**kwargs)
         # breakpoint()
         self.frame=0
         # breakpoint()
