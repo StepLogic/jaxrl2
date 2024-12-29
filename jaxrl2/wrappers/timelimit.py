@@ -58,6 +58,7 @@ class TimeLimit(gym.Wrapper, gym.utils.RecordConstructorArgs):
         self._elapsed_steps += 1
 
         if self._elapsed_steps >= self._max_episode_steps:
+            print("Max time steps",self._elapsed_steps)
             truncated = True
             info["TimeLimit.truncated"] = True 
 

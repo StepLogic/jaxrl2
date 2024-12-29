@@ -111,12 +111,12 @@ class GSDEPolicy(nn.Module):
     """Policy network with gSDE noise."""
     hidden_dims: Sequence[int]
     action_dim: int
-    latent_sde_dim: Optional[int] = None
+    latent_sde_dim: Optional[int] = 128
     log_std_init: float = -2.0
     full_std: bool = True
-    use_expln: bool = False
-    squash_output: bool = False
-    learn_features: bool = False
+    use_expln: bool = True
+    squash_output: bool = True
+    learn_features: bool = True
     
     @nn.compact
     def __call__(self, observations: jnp.ndarray, key: random.PRNGKey, 
