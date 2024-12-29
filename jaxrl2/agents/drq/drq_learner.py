@@ -21,6 +21,7 @@ from jaxrl2.agents.sac.temperature_updater import update_temperature
 from jaxrl2.data.dataset import DatasetDict
 from jaxrl2.networks.encoders import D4PGEncoder, ResNetV2Encoder
 from jaxrl2.networks.normal_tanh_policy import NormalTanhPolicy
+from jaxrl2.networks.gsde_policy import GSDEPolicy
 from jaxrl2.networks.pixel_multiplexer import PixelMultiplexer
 from jaxrl2.networks.values import StateActionEnsemble
 from jaxrl2.types import Params, PRNGKey

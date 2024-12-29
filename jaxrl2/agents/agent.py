@@ -5,6 +5,8 @@ from jaxrl2.agents.common import eval_actions_jit, eval_log_prob_jit, sample_act
 from jaxrl2.data.dataset import DatasetDict
 from jaxrl2.types import PRNGKey
 
+from flax import struct
+from flax.training.train_state import TrainState
 
 class Agent(object):
     _actor: TrainState
