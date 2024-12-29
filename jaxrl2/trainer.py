@@ -22,7 +22,7 @@ class RLTrainer:
     def __init__(
         self,
         config: ConfigDict,
-        env_name: str = "carla",
+        env:Any,
         seed: int = 42,
         save_dir: str = "./logs",
         eval_episodes: int = 10,
