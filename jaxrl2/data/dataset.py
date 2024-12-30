@@ -105,7 +105,6 @@ class Dataset(object):
                 batch[k] = _sample(self.dataset_dict[k], indx)
             else:
                 batch[k] = self.dataset_dict[k][indx]
-
         return frozen_dict.freeze(batch)
 
     def sample_jax(self, batch_size: int, keys: Optional[Iterable[str]] = None):

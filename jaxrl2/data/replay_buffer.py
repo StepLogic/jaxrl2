@@ -125,9 +125,7 @@ class ReplayBuffer(Dataset):
                 indx = self.np_random.integers(len(self), size=batch_size)
             else:
                 indx = self.np_random.randint(len(self), size=batch_size)
-
         samples = super().sample(batch_size, keys, indx)
-
         if sample_futures and not sample_futures_key is None:
             samples = frozen_dict.unfreeze(samples)
             samples['future_observations'] = self.sample_future_observation(indx, sample_futures_key)
@@ -137,5 +135,4 @@ class ReplayBuffer(Dataset):
             samples = frozen_dict.unfreeze(samples)
             samples = self._relabel_fn(samples)
             samples = frozen_dict.freeze(samples)
-
         return samples
