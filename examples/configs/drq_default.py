@@ -12,7 +12,7 @@ def get_config():
     config.cnn_filters = (3, 3, 3, 3)
     config.cnn_strides = (2, 2, 2, 2)
     config.cnn_padding = "VALID"
-    config.latent_dim = 50
+    config.latent_dim = 512
     config.encoder = "d4pg"
     config.discount = 0.98
     config.tau = 0.005
