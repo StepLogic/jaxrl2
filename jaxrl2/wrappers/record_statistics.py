@@ -87,7 +87,7 @@ class RecordEpisodeStatistics(
     ) -> tuple[ObsType, SupportsFloat, bool, bool, dict[str, Any]]:
         """Steps through the environment, recording the episode statistics."""
         obs, reward, terminated, truncated, info = super().step(action)
-
+        
         self.episode_returns += reward
         self.episode_lengths += 1
 
@@ -97,12 +97,13 @@ class RecordEpisodeStatistics(
             episode_time_length = round(
                 time.perf_counter() - self.episode_start_time, 6
             )
+            # print(info) 
             info[self._stats_key] = {
                 "r": self.episode_returns,
                 "l": self.episode_lengths,
                 "t": episode_time_length,
             }
-
+            # print(info)
             self.time_queue.append(episode_time_length)
             self.return_queue.append(self.episode_returns)
             self.length_queue.append(self.episode_lengths)

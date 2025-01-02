@@ -11,7 +11,7 @@ from jaxrl2.utils.misc import augment_batch
 import optax
 from flax.core.frozen_dict import FrozenDict,freeze,unfreeze
 from flax.training.train_state import TrainState
-
+import numpy as np
 from jaxrl2.agents.agent import Agent
 from jaxrl2.agents.drq.augmentations import batched_random_crop
 from jaxrl2.agents.sac.actor_updater import update_actor
@@ -175,9 +175,9 @@ class DrQLearner(Agent):
         """
 
         action_dim = actions.shape[-1]
-
+        # https://github.com/DLR-RM/stable-baselines3/blob/master/stable_baselines3/sac/sac.py
         if target_entropy is None:
-            self.target_entropy = -action_dim / 2
+            self.target_entropy = float(-np.prod(actions.shape).astype(np.float32)) 
         else:
             self.target_entropy = target_entropy
 

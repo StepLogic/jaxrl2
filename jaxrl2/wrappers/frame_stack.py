@@ -52,4 +52,4 @@ class FrameStack(gym.Wrapper):
             self._frames.append(obs[self._stacking_key])
         self.frame+=1
         obs[self._stacking_key] = self.frames
-        return obs, reward,done,terminate,info
+        return obs,reward,done,terminate,info
