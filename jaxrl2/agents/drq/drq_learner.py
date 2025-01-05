@@ -107,7 +107,7 @@ def _update_jit(
                     critic,
                     target_critic,
                     temp,
-                    batch,
+                    mini_batch,
                     discount,
                     backup_entropy=backup_entropy,
                     critic_reduction=critic_reduction,

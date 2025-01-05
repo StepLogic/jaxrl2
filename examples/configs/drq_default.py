@@ -14,11 +14,10 @@ def get_config():
     config.cnn_padding = "VALID"
     config.latent_dim = 512
     config.encoder = "d4pg"
-    config.discount = 0.98
+    config.discount = 0.998
     config.tau = 0.005
     config.init_temperature = 1.0
     config.target_entropy = None
     config.backup_entropy = True
     config.critic_reduction = "mean"
-
     return config
