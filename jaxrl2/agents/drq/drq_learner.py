@@ -107,7 +107,7 @@ def _update_jit(
                     critic,
                     target_critic,
                     temp,
-                    batch,
+                    mini_batch,
                     discount,
                     backup_entropy=backup_entropy,
                     critic_reduction=critic_reduction,
@@ -177,7 +177,7 @@ class DrQLearner(Agent):
         action_dim = actions.shape[-1]
         # https://github.com/DLR-RM/stable-baselines3/blob/master/stable_baselines3/sac/sac.py
         if target_entropy is None:
-            self.target_entropy = float(-np.prod(actions.shape).astype(np.float32)) 
+            self.target_entropy=-action_dim/2 
         else:
             self.target_entropy = target_entropy
 
