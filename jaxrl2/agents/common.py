@@ -32,6 +32,15 @@ def eval_actions_jit(
 
 
 @partial(jax.jit, static_argnames="actor_apply_fn")
+def action_dist_jit(
+    actor_apply_fn: Callable[..., distrax.Distribution],
+    actor_params: Params,
+    observations: np.ndarray,
+) -> jnp.ndarray:
+    dist = actor_apply_fn({"params": actor_params}, observations)
+    return dist
+
+@partial(jax.jit, static_argnames="actor_apply_fn")
 def sample_actions_jit(
     rng: PRNGKey,
     actor_apply_fn: Callable[..., distrax.Distribution],

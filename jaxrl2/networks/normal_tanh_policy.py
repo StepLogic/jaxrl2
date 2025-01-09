@@ -43,11 +43,14 @@ class TanhMultivariateNormalDiag(distrax.Transformed):
         layers.append(distrax.Block(distrax.Tanh(), 1))
 
         bijector = distrax.Chain(layers)
-
         super().__init__(distribution=distribution, bijector=bijector)
 
     def mode(self) -> jnp.ndarray:
         return self.bijector.forward(self.distribution.mode())
+    
+    def log_std(self) -> jnp.ndarray:
+        return jnp.log(self.bijector.forward(self.distribution.stddev()))
+
 
 
 class NormalTanhPolicy(nn.Module):
