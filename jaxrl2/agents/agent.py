@@ -28,7 +28,5 @@ class Agent(object):
         rng, actions = sample_actions_jit(
             self._rng, self._actor.apply_fn, self._actor.params, observations
         )
-
         self._rng = rng
-
         return np.asarray(actions)

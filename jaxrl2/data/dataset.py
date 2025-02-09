@@ -171,7 +171,6 @@ class Dataset(object):
         assert (take_top is None and threshold is not None) or (
             take_top is not None and threshold is None
         )
-
         (
             episode_starts,
             episode_ends,

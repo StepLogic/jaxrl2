@@ -6,6 +6,7 @@ from functools import partial
 from typing import Any, Callable, Sequence, Tuple
 
 import flax.linen as nn
+import jax
 import jax.numpy as jnp
 from flax import linen as nn
 
@@ -59,8 +60,14 @@ class ResNetV2Encoder(nn.Module):
     def __call__(self, x):
         conv = partial(nn.Conv, use_bias=False, dtype=self.dtype)
         norm = partial(MyGroupNorm, num_groups=4, epsilon=1e-5, dtype=self.dtype)
+        x=x.astype(jnp.float32)
+        x = jax.lax.cond(
+                    jnp.max(x) > 1.0,
+                    lambda x: (x).astype(jnp.float32)/ 255,  # true_fn: normalize
+                    lambda x: x.astype(jnp.float32),               # false_fn: keep as is
+                    x
+                )
 
-        x = x.astype(jnp.float32) / 255.0
         x = jnp.reshape(x, (*x.shape[:-2], -1))
 
         if x.shape[-2] == 224:

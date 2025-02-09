@@ -48,8 +48,9 @@ class TanhMultivariateNormalDiag(distrax.Transformed):
     def mode(self) -> jnp.ndarray:
         return self.bijector.forward(self.distribution.mode())
     
-    def log_std(self) -> jnp.ndarray:
-        return jnp.log(self.bijector.forward(self.distribution.stddev()))
+
+    def stddev(self) -> jnp.ndarray:
+        return self.bijector.forward(self.distribution.stddev())
 
 
 

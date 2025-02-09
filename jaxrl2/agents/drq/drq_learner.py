@@ -217,7 +217,7 @@ class DrQLearner(Agent):
             tx=optax.adam(learning_rate=actor_lr),
         )
 
-        critic_def = StateActionEnsemble(hidden_dims, num_qs=min(num_qs,2))
+        critic_def = StateActionEnsemble(hidden_dims, num_qs=max(num_qs,2))
         critic_def = PixelMultiplexer(
             encoder=encoder_def, network=critic_def, latent_dim=latent_dim
         )

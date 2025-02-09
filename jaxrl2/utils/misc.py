@@ -1,5 +1,6 @@
+from datetime import datetime
 from typing import Dict, Optional, Tuple, Union
-
+from torch.utils.tensorboard import SummaryWriter
 import flax.linen as nn
 import jax
 import jax.numpy as jnp
@@ -112,3 +113,60 @@ def load_pretrained(checkpoint_dir,agent):
 def load_checkpoints(checkpoint_dir,agent):
     loaded_params = checkpoints.restore_checkpoint(checkpoint_dir, target=agent)
     return loaded_params
+
+
+
+
+class Logger:
+    def __init__(self, log_dir: str):
+        # Create timestamped log directory
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.log_dir = os.path.join(log_dir, timestamp)
+        self.writer = SummaryWriter(log_dir=self.log_dir)
+        
+        # Store metrics for console printing
+        self.train_metrics = {}
+        self.eval_metrics = {}
+        self.episode_metrics = {}
+        
+        print(f"\nLogging to: {self.log_dir}\n")
+    
+    def log_training(self, metrics: Dict[str, Any], step: int,prefix=""):
+        """Log training metrics to both tensorboard and console."""
+        for k, v in metrics.items():
+            self.writer.add_scalar(f"training{prefix}/{k}", np.array(v), step)
+            self.train_metrics[f"{k}{prefix}"] = np.array(v)
+    
+    def log_eval(self, metrics: Dict[str, Any], step: int):
+        """Log evaluation metrics to both tensorboard and console."""
+        for k, v in metrics.items():
+            self.writer.add_scalar(f"evaluation/{k}",np.array(v), step)
+            self.eval_metrics[k] = np.array(v)
+    
+    def log_episode(self, metrics: Dict[str, Any], step: int):
+        """Log episode metrics to both tensorboard and console."""
+        for k, v in metrics.items():
+            self.writer.add_scalar(f"episode/{k}", np.array(v), step)
+            self.episode_metrics[k] = np.array(v)
+    
+    def print_status(self, step: int, total_steps: int):
+        """Print current status in a nicely formatted way."""
+        print("\n" + "="*80)
+        print(f"Step: {step}/{total_steps} ({step/total_steps*100:.1f}%)")
+        
+        if self.train_metrics:
+            print("\nTraining Metrics:")
+            for k, v in self.train_metrics.items():
+                print(f"  {k:<20} {np.array(v):>10.4f}")
+        
+        if self.episode_metrics:
+            print("\nLatest Episode:")
+            for k, v in self.episode_metrics.items():
+                print(f"  {k:<20} {np.array(v):>10.4f}")
+        
+        if self.eval_metrics:
+            print("\nLatest Evaluation:")
+            for k, v in self.eval_metrics.items():
+                print(f"  {k:<20} {np.array(v):>10.4f}")
+        
+        print("="*80 + "\n")
