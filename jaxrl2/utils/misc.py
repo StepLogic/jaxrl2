@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 from torch.utils.tensorboard import SummaryWriter
 import flax.linen as nn
 import jax
