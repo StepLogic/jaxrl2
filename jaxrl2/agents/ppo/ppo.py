@@ -190,8 +190,9 @@ class PPOLearner(Agent):
 
         # critic_def = StateValueEnsemble(hidden_dims, num_qs=max(num_qs,2))
         critic_def=StateValue(hidden_dims,activations=nn.tanh,
-                              kernel_init=lambda:nn.initializers.orthogonal(jnp.sqrt(2)),
-                              bias_init=lambda:nn.initializers.constant(0.0)
+                                kernel_init=lambda:nn.initializers.orthogonal(jnp.sqrt(2)),
+                                bias_init=lambda:nn.initializers.constant(0.0),
+                                # num_qs=max(num_qs,2)
                               )
         critic_def = PixelMultiplexer(
             encoder=encoder_def, 

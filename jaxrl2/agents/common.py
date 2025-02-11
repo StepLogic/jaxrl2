@@ -42,6 +42,16 @@ def action_dist_jit(
     return dist
 
 @partial(jax.jit, static_argnames="actor_apply_fn")
+def extract_feature(
+    actor_apply_fn: Callable[..., distrax.Distribution],
+    actor_params: Params,
+    observations: np.ndarray,
+) -> jnp.ndarray:
+    dist = actor_apply_fn({"params": actor_params}, observations,mutable='intermediates')
+    features = dist['intermediates']['SowCNN']['features']
+    return features
+
+@partial(jax.jit, static_argnames="actor_apply_fn")
 def sample_actions_jit(
     rng: PRNGKey,
     actor_apply_fn: Callable[..., distrax.Distribution],

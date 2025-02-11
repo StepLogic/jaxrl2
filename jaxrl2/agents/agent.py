@@ -1,7 +1,7 @@
 import numpy as np
 from flax.training.train_state import TrainState
 
-from jaxrl2.agents.common import action_dist_jit, eval_actions_jit, eval_log_prob_jit, sample_actions_jit
+from jaxrl2.agents.common import action_dist_jit, eval_actions_jit, eval_log_prob_jit, sample_actions_jit,extract_feature
 from jaxrl2.data.dataset import DatasetDict
 from jaxrl2.types import PRNGKey
 
@@ -23,6 +23,10 @@ class Agent(object):
     
     def action_dist(self, batch: DatasetDict):
         return action_dist_jit(self._actor.apply_fn, self._actor.params, batch)
+
+    def extract_features(self, batch:DatasetDict):
+        return extract_feature(self._actor.apply_fn, self._actor.params,batch)
+
 
     def sample_actions(self, observations: np.ndarray) -> np.ndarray:
         rng, actions = sample_actions_jit(

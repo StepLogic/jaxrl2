@@ -16,7 +16,7 @@ class D4PGEncoder(nn.Module):
     @nn.compact
     def __call__(self, observations: jnp.ndarray) -> jnp.ndarray:
         assert len(self.features) == len(self.strides)
-
+        # breakpoint()
         observations=observations.astype(jnp.float32)
         x = jax.lax.cond(
                     jnp.max(observations) > 1.0,

@@ -10,8 +10,8 @@ from jaxrl2.networks.plain_mlp import PlainMLP
 class StateValue(nn.Module):
     hidden_dims: Sequence[int]
     activations: Callable[[jnp.ndarray], jnp.ndarray] = nn.tanh
-    kernel_init: Callable = lambda *args,**kwargs: nn.initializers.xavier_uniform(*args,**kwargs)
-    bias_init:Callable = lambda *args,**kwargs: nn.initializers.constant(*args,**kwargs)
+    kernel_init: Optional[Callable] = None
+    bias_init: Optional[Callable] = None
     @nn.compact
     def __call__(
         self, observations: jnp.ndarray, training: bool = False

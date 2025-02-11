@@ -108,17 +108,15 @@ class PixelMultiplexer(nn.Module):
             else:
                 # Handle continuous observations
                 x = nn.Dense(self.latent_dim, kernel_init=kernel_init())(value)
-            
             x = nn.LayerNorm()(x)
             x = nn.tanh(x)
             processed_features.append(x)
-        
         # Combine all processed features
         if len(processed_features) > 1:
             x = jnp.concatenate(processed_features, axis=-1)
         else:
             x = processed_features[0]
-        
+        self.sow('intermediates', 'features', x)
         # Pass through the network
         if actions is None:
             return self.network(x, training=training)
