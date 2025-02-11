@@ -6,7 +6,7 @@ import jax.numpy as jnp
 from flax.core.frozen_dict import FrozenDict
 
 from jaxrl2.networks.constants import default_init,default_bias_init
-from jaxrl2.utils.misc import is_image_space, process_observation
+from jaxrl2.utils.misc import augment_batch, is_image_space, process_observation
 
 # from typing import Dict, Optional, Union
 # import flax.linen as nn
@@ -84,6 +84,7 @@ class PixelMultiplexer(nn.Module):
         actions: Optional[jnp.ndarray] = None,
         training: bool = False,
     ) -> jnp.ndarray:
+        
         # Handle both array and dict inputs
         observations = process_observation(observations)
         # Convert to FrozenDict if needed

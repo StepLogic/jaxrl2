@@ -7,13 +7,14 @@ from typing import Dict, Optional, Sequence, Tuple, Union
 import jax
 import jax.numpy as jnp
 from jaxrl2.networks.encoders.placeholder import PlaceholderEncoder
+from jaxrl2.utils.augmentations import batched_random_crop, batched_random_cutout
 from jaxrl2.utils.misc import augment_batch
 import optax
 from flax.core.frozen_dict import FrozenDict,freeze,unfreeze
 from flax.training.train_state import TrainState
 import numpy as np
 from jaxrl2.agents.agent import Agent
-from jaxrl2.agents.drq.augmentations import batched_random_crop
+
 from jaxrl2.agents.sac.actor_updater import update_actor
 from jaxrl2.agents.sac.critic_updater import update_critic
 from jaxrl2.agents.sac.temperature import Temperature
@@ -60,7 +61,7 @@ def _share_encoder(source, target):
     return target.replace(params=new_params)
 
 
-@functools.partial(jax.jit, static_argnames=("backup_entropy", "critic_reduction","utd_ratio","enable_update_temperature"))
+@functools.partial(jax.jit, static_argnames=("backup_entropy", "critic_reduction","utd_ratio","enable_update_temperature","augument"))
 def _update_jit(
     rng: PRNGKey,
     actor: TrainState,
@@ -74,7 +75,8 @@ def _update_jit(
     backup_entropy: bool,
     critic_reduction: str,
     utd_ratio=None,
-    enable_update_temperature=True
+    enable_update_temperature=True,
+    augument:bool=True
 ) -> Tuple[PRNGKey, TrainState, TrainState, Params, TrainState, Dict[str, float]]:
     # batch = _unpack(batch)
     actor = _share_encoder(source=critic, target=actor)
@@ -89,9 +91,11 @@ def _update_jit(
     #     add_or_replace={"pixels": aug_next_pixels}
     # )
     # batch = batch.copy(add_or_replace={"next_observations": next_observations})
-    rng, key = jax.random.split(rng)    
-    rng, batch = augment_batch(key, batch,batched_random_crop)
-    rng, key = jax.random.split(rng)
+    if augument:
+        rng, batch = augment_batch(key, batch,batched_random_crop)
+        rng, key = jax.random.split(rng)
+        rng, batch = augment_batch(key, batch,batched_random_cutout)
+        
     target_critic = critic.replace(params=target_critic_params)
     if not utd_ratio is None:
         def slice(i, x):
@@ -200,9 +204,9 @@ class DrQLearner(Agent):
             )
         elif encoder == "resnet":
             encoder_def = partial(ResNetV2Encoder, stage_sizes=(2, 2, 2, 2))
-        elif encoder == "embeddings":
+        else:
             encoder_def = partial(PlaceholderEncoder)
-
+        self.augument=not encoder is None
         policy_def = NormalTanhPolicy(hidden_dims, action_dim)
         actor_def = PixelMultiplexer(
             encoder=encoder_def,
@@ -267,7 +271,8 @@ class DrQLearner(Agent):
             self.backup_entropy,
             self.critic_reduction,
             utd_ratio=utd_ratio,
-            enable_update_temperature=enable_update_temperature
+            enable_update_temperature=enable_update_temperature,
+            augument=self.augument
         )
 
 

@@ -11,7 +11,7 @@ from flax.training.train_state import TrainState
 
 from jaxrl2.agents.agent import Agent
 from jaxrl2.agents.bc.actor_updater import log_prob_update
-from jaxrl2.agents.drq.augmentations import batched_random_crop
+from jaxrl2.utils.augmentations import batched_random_crop
 from jaxrl2.data.dataset import DatasetDict
 from jaxrl2.networks.encoders import D4PGEncoder, ResNetV2Encoder,PlaceholderEncoder
 from jaxrl2.networks.normal_policy import UnitStdNormalPolicy

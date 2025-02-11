@@ -11,7 +11,7 @@ from flax.core.frozen_dict import FrozenDict
 from flax.training.train_state import TrainState
 
 from jaxrl2.agents.agent import Agent
-from jaxrl2.agents.drq.augmentations import batched_random_crop
+from jaxrl2.utils.augmentations import batched_random_crop
 from jaxrl2.agents.drq.drq_learner import _share_encoder, _unpack
 from jaxrl2.agents.iql.actor_updater import update_actor
 from jaxrl2.agents.iql.critic_updater import update_q, update_v

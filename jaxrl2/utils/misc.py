@@ -118,10 +118,10 @@ def load_checkpoints(checkpoint_dir,agent):
 
 
 class Logger:
-    def __init__(self, log_dir: str):
+    def __init__(self, log_dir: str,prefix:str=""):
         # Create timestamped log directory
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.log_dir = os.path.join(log_dir, timestamp)
+        self.log_dir = os.path.join(log_dir, prefix+timestamp)
         self.writer = SummaryWriter(log_dir=self.log_dir)
         
         # Store metrics for console printing

@@ -18,7 +18,7 @@ from flax.core.frozen_dict import FrozenDict,unfreeze,freeze
 from flax.training.train_state import TrainState
 import numpy as np
 from jaxrl2.agents.agent import Agent
-from jaxrl2.agents.drq.augmentations import batched_random_crop
+from jaxrl2.utils.augmentations import batched_random_crop
 from jaxrl2.data.dataset import DatasetDict
 from jaxrl2.networks.encoders import D4PGEncoder, ResNetV2Encoder
 from jaxrl2.networks.normal_tanh_policy import NormalTanhPolicy
@@ -31,7 +31,7 @@ import flax.linen as nn
 
 
 
-@functools.partial(jax.jit, static_argnames=("utd_ratio","target_kl","vf_coeff","ent_coeff","gae_lambda","clip_ratio"))
+@functools.partial(jax.jit, static_argnames=("utd_ratio","target_kl","vf_coeff","ent_coeff","gae_lambda","clip_ratio","augument"))
 def _update_jit(
     rng: PRNGKey,
     actor: TrainState,
@@ -44,9 +44,10 @@ def _update_jit(
     ent_coeff:float,
     gae_lambda:float,
     utd_ratio=1,
+    augument=True
 ) -> Tuple[PRNGKey, TrainState, TrainState, Params, TrainState, Dict[str, float]]:
     actor = _share_encoder(source=critic, target=actor)
-    # rng, key = jax.random.split(rng)    
+    rng, key = jax.random.split(rng)    
     # rng, batch = augment_batch(key, batch,batched_random_crop)
     # rng, key = jax.random.split(rng)
     # batch=unfreeze(batch)
@@ -59,6 +60,8 @@ def _update_jit(
     # new_actor, actor_info = update_actor(key,actor,batch,clip_ratio,target_kl,utd_ratio)
     # rng, key = jax.random.split(rng)
     # new_actor,new_critic, info=update_actor_critic(key,actor,critic,batch,clip_ratio,target_kl,ent_coeff,vf_coeff,utd_ratio)
+    if augument:
+        rng, batch = augment_batch(key, batch,batched_random_crop)
     new_info={}
     new_critic, critic_info = update_critic(critic, batch, vf_coeff)
     new_actor, actor_info = update_actor(actor, batch, clip_ratio, target_kl, ent_coeff, utd_ratio)
@@ -161,7 +164,7 @@ class PPOLearner(Agent):
             encoder_def = partial(ResNetV2Encoder, stage_sizes=(2, 2, 2, 2))
         else:
             encoder_def = partial(PlaceholderEncoder)
-
+        self.augument=not encoder is None
         policy_def = VariableStdNormalPolicy(hidden_dims, action_dim,activations=nn.tanh,
                                             kernel_init=lambda:nn.initializers.orthogonal(jnp.sqrt(2)),
                                             bias_init=lambda:nn.initializers.constant(0.0)
@@ -263,7 +266,8 @@ class PPOLearner(Agent):
             self.vf_coeff,
             self.ent_coeff,
             self.gae_lambda,
-            utd_ratio=utd_ratio
+            utd_ratio=utd_ratio,
+            augument=self.augument
         )
       
 
