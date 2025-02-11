@@ -55,7 +55,6 @@ def _update_jit(
     #     critic,batch,discount,gae_lambda
     # )
     # batch=freeze(batch)
-
     # rng, key = jax.random.split(rng)
     # new_actor, actor_info = update_actor(key,actor,batch,clip_ratio,target_kl,utd_ratio)
     # rng, key = jax.random.split(rng)
