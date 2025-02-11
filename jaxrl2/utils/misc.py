@@ -58,16 +58,17 @@ def augment_batch(
 ) -> Tuple[jnp.ndarray, Dict]:
     # Get observations and next_observations
     observations = batch["observations"]
-    next_observations = batch["next_observations"]
+    if "next_observations" in batch.keys():
+        next_observations = batch["next_observations"]
     
     # Handle observations
     rng, aug_observations = augment_observations(rng, observations, aug_func)
     new_batch = batch.copy(add_or_replace={"observations": aug_observations})
     
     # Handle next_observations
-    rng, aug_next_observations = augment_observations(rng, next_observations, aug_func)
-    new_batch = new_batch.copy(add_or_replace={"next_observations": aug_next_observations})
-    
+    if "next_observations" in batch.keys():
+        rng, aug_next_observations = augment_observations(rng, next_observations, aug_func)
+        new_batch = new_batch.copy(add_or_replace={"next_observations": aug_next_observations})
     return rng, new_batch
 
 
