@@ -103,12 +103,13 @@ class PixelMultiplexer(nn.Module):
                     value
                 )
                 x = self.encoder(name=f"encoder_{key}")(value)
+                x = nn.Dense(self.latent_dim, kernel_init=kernel_init(),bias_init=bias_init())(x)
                 if self.stop_gradient:
                     x = jax.lax.stop_gradient(x)
-                x = nn.Dense(self.latent_dim, kernel_init=kernel_init(),bias_init=bias_init())(x)
+
             else:
                 # Handle continuous observations
-                x = nn.Dense(self.latent_dim, kernel_init=kernel_init())(value)
+                x = nn.Dense(self.latent_dim, kernel_init=kernel_init(),name=f"encoder_{key}")(value)
             x = nn.LayerNorm()(x)
             x = nn.tanh(x)
             processed_features.append(x)

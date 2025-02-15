@@ -1,4 +1,4 @@
-from typing import Optional, Sequence
+from typing import Callable, Optional, Sequence
 
 import distrax
 import flax.linen as nn
@@ -62,13 +62,14 @@ class NormalTanhPolicy(nn.Module):
     log_std_max: Optional[float] = 2
     low: Optional[jnp.ndarray] = None
     high: Optional[jnp.ndarray] = None
+    activations: Callable[[jnp.ndarray], jnp.ndarray] = nn.relu
 
     @nn.compact
     def __call__(
         self, observations: jnp.ndarray, training: bool = False
     ) -> distrax.Distribution:
         outputs = MLP(
-            self.hidden_dims, activate_final=True, dropout_rate=self.dropout_rate
+            self.hidden_dims, activate_final=True,activations=self.activations, dropout_rate=self.dropout_rate
         )(observations, training=training)
 
         means = nn.Dense(self.action_dim, kernel_init=default_init())(outputs)

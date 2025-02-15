@@ -5,13 +5,14 @@ from typing import Dict, Optional, Sequence, Tuple, Union
 
 import jax
 import jax.numpy as jnp
+from jaxrl2.utils.misc import augment_batch
 import optax
 from flax.core.frozen_dict import FrozenDict
 from flax.training.train_state import TrainState
 
 from jaxrl2.agents.agent import Agent
 from jaxrl2.agents.bc.actor_updater import log_prob_update
-from jaxrl2.utils.augmentations import batched_random_crop
+from jaxrl2.utils.augmentations import batched_random_crop, batched_random_cutout
 from jaxrl2.data.dataset import DatasetDict
 from jaxrl2.networks.encoders import D4PGEncoder, ResNetV2Encoder,PlaceholderEncoder
 from jaxrl2.networks.normal_policy import UnitStdNormalPolicy
@@ -24,9 +25,10 @@ def _update_jit(
     rng: PRNGKey, actor: TrainState, batch: TrainState
 ) -> Tuple[PRNGKey, TrainState, TrainState, Params, TrainState, Dict[str, float]]:
     rng, key = jax.random.split(rng)
-    aug_pixels = batched_random_crop(key, batch["observations"]["pixels"])
-    observations = batch["observations"].copy(add_or_replace={"pixels": aug_pixels})
-    batch = batch.copy(add_or_replace={"observations": observations})
+    # if augument:
+    rng, batch = augment_batch(key, batch,batched_random_crop)
+    rng, key = jax.random.split(rng)
+    rng, batch = augment_batch(key, batch,batched_random_cutout)
 
     rng, new_actor, actor_info = log_prob_update(rng, actor, batch)
 

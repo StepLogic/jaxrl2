@@ -40,11 +40,14 @@ def _add_recursively(
         dataset_dict: DatasetDict, data_dict: DatasetDict, insert_index: int
 ):
     if isinstance(dataset_dict, np.ndarray):
-        dataset_dict = np.append(dataset_dict,data_dict)
+        dataset_dict = np.append(dataset_dict,[data_dict],axis=0) 
+        # print(dataset_dict.shape)
+        return dataset_dict
     elif isinstance(dataset_dict, dict):
         assert dataset_dict.keys() == data_dict.keys()
-        for k in dataset_dict.keys():
-            _insert_recursively(dataset_dict[k], data_dict[k], insert_index)
+        for k in data_dict.keys():
+            dataset_dict[k] = _add_recursively(dataset_dict[k], data_dict[k],insert_index)
+        return dataset_dict
     else:
         raise TypeError()
 
@@ -155,7 +158,7 @@ class VariableCapacityBuffer(Dataset):
             self,
             observation_space: gym.Space,
             action_space: gym.Space,
-            capacity: int=1,
+            capacity: int=0,
             next_observation_space: Optional[gym.Space] = None,
             relabel_fn: Optional[Callable[[DatasetDict], DatasetDict]] = None,
     ):
@@ -172,7 +175,7 @@ class VariableCapacityBuffer(Dataset):
             masks=np.empty((capacity,), dtype=np.float32),
             dones=np.empty((capacity,), dtype=bool),
         )
-
+        # breakpoint()
         super().__init__(dataset_dict)
         self._size = 0
         self._capacity = capacity
@@ -183,14 +186,15 @@ class VariableCapacityBuffer(Dataset):
         return self._size
 
     def insert(self, data_dict: DatasetDict):
-        _add_recursively(self.dataset_dict, data_dict, self._insert_index)
+        # breakpoint()
+        self.dataset_dict=_add_recursively(self.dataset_dict, data_dict, self._insert_index)
+        self._size += 1
+        # breakpoint()
 
     def get_iterator(self, queue_size: int = 2, sample_args: dict = {}):
         # See https://flax.readthedocs.io/en/latest/_modules/flax/jax_utils.html#prefetch_to_device
         # queue_size = 2 should be ok for one GPU.
-
         queue = collections.deque()
-
         def enqueue(n):
             for _ in range(n):
                 data = self.sample(**sample_args)
@@ -200,6 +204,15 @@ class VariableCapacityBuffer(Dataset):
         while queue:
             yield queue.popleft()
             enqueue(1)
+    # def get_iterator(self, queue_size: int = 2, sample_args: dict = None):
+    #     if sample_args is None:
+    #         sample_args = {}
+    #     m = 0
+    #     batch_size = sample_args.get("batch_size", 1)
+    #     while m * batch_size < len(self):
+    #         data = self.sample(**sample_args)  
+    #         yield jax.device_put(data)
+    #         m = (m+1) % len(self)
 
     def sample(self,
                batch_size: int,
@@ -213,5 +226,7 @@ class VariableCapacityBuffer(Dataset):
                 indx = self.np_random.integers(len(self), size=batch_size)
             else:
                 indx = self.np_random.randint(len(self), size=batch_size)
+        # print(indx)
+        # breakpoint()
         samples = super().sample(batch_size, keys, indx)
         return samples

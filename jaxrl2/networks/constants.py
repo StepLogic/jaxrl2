@@ -3,7 +3,7 @@ import jax.numpy as jnp
 
 
 def default_init(scale: float = jnp.sqrt(2)):
-    return nn.initializers.glorot_uniform()
+    return nn.initializers.xavier_uniform()
 
 def default_orthogonal_init(scale: float = jnp.sqrt(2)):
     return nn.initializers.orthogonal(scale=scale)

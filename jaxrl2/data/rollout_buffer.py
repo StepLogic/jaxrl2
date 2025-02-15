@@ -201,14 +201,11 @@ class RolloutBuffer(Dataset):
         # TD(lambda) estimator, see Github PR #375 or "Telescoping in TD(lambda)"
         # in David Silver Lecture 4: https://www.youtube.com/watch?v=PnHCvfgC_ZA
         returns = advantages + values
-
         # if len(returns) > 1:
         #     returns = (returns - returns.mean()) / (returns.std() + 1e-8)
         # # advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-    
         self.dataset_dict["advantages"] = advantages
         self.dataset_dict["returns"] = returns
-        # breakpoint()
         self.explained_variance = explained_variance(values,returns)
         self._insert_index=0
 

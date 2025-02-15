@@ -46,7 +46,7 @@ def _update_jit(
     utd_ratio=1,
     augument=True
 ) -> Tuple[PRNGKey, TrainState, TrainState, Params, TrainState, Dict[str, float]]:
-    actor = _share_encoder(source=critic, target=actor)
+
     rng, key = jax.random.split(rng)    
     # rng, batch = augment_batch(key, batch,batched_random_crop)
     # rng, key = jax.random.split(rng)
@@ -60,12 +60,11 @@ def _update_jit(
     # new_actor, actor_info = update_actor(key,actor,batch,clip_ratio,target_kl,utd_ratio)
     # rng, key = jax.random.split(rng)
     # new_actor,new_critic, info=update_actor_critic(key,actor,critic,batch,clip_ratio,target_kl,ent_coeff,vf_coeff,utd_ratio)
-    if augument:
-        rng, batch = augment_batch(key, batch,batched_random_crop)
+    # if augument:
+    #     rng, batch = augment_batch(key, batch,batched_random_crop)
     new_info={}
     new_critic, critic_info = update_critic(critic, batch, vf_coeff)
     new_actor, actor_info = update_actor(actor, batch, clip_ratio, target_kl, ent_coeff, utd_ratio)
-    
     # new_info = info.copy()
     new_info.update(actor_info)
     new_info.update(critic_info)
@@ -99,7 +98,7 @@ def _update_jit(
     #     )
     # new_info = dict(actor_loss=0.0, entropy=0.0, kl=0.0, cf=0.0,q=0.0,critic_loss=0.0)
     # new_actor, new_critic, new_info = jax.lax.fori_loop(0, utd_ratio, loop_body, (actor, critic, new_info))
-
+    new_actor = _share_encoder(source=new_critic, target=new_actor)
     return (
         rng,
         new_actor,
@@ -124,8 +123,8 @@ class PPOLearner(Agent):
         latent_dim: int = 50,
         discount: float = 0.99,
         gae_lambda:float=0.95,
-        target_kl=0.01,
-        ent_coeff:float=0.00,
+        target_kl=0.015,
+        ent_coeff:float=0.01,
         vf_coeff:float=0.5,
         clip_ratio: float = 0.2,
         critic_reduction: str = "min",
@@ -165,18 +164,22 @@ class PPOLearner(Agent):
         else:
             encoder_def = partial(PlaceholderEncoder)
         self.augument=not encoder is None
-        policy_def = VariableStdNormalPolicy(hidden_dims, action_dim,activations=nn.tanh,
+        policy_def = VariableStdNormalPolicy(hidden_dims, action_dim,
+                                             activations=nn.tanh,
                                             kernel_init=lambda:nn.initializers.orthogonal(jnp.sqrt(2)),
                                             bias_init=lambda:nn.initializers.constant(0.0)
                                              )
-        
+        # policy_def = NormalTanhPolicy(hidden_dims, action_dim,activations=nn.tanh,
+        #                                     # kernel_init=lambda:nn.initializers.orthogonal(jnp.sqrt(2)),
+        #                                     # bias_init=lambda:nn.initializers.constant(0.0)
+        #                                      )
         actor_def = PixelMultiplexer(
             encoder=encoder_def,
             network=policy_def,
             latent_dim=latent_dim,
             stop_gradient=True,
-            kernel_init=lambda:nn.initializers.orthogonal(jnp.sqrt(2)),
-            bias_init=lambda:nn.initializers.constant(0.0)
+            # kernel_init=lambda:nn.initializers.orthogonal(jnp.sqrt(2)),
+            # bias_init=lambda:nn.initializers.constant(0.0)
         )
         actor_params = actor_def.init(actor_key, observations)["params"]
         actor = TrainState.create(
@@ -184,7 +187,7 @@ class PPOLearner(Agent):
             params=actor_params,
             tx= optax.chain(
             optax.clip_by_global_norm(max_grad_norm),
-            optax.inject_hyperparams(optax.adamw)(
+            optax.inject_hyperparams(optax.adam)(
             learning_rate=actor_lr,
             eps=1e-5
         )
@@ -201,8 +204,8 @@ class PPOLearner(Agent):
             encoder=encoder_def, 
             network=critic_def, 
             latent_dim=latent_dim,
-            kernel_init=lambda:nn.initializers.orthogonal(jnp.sqrt(2)),
-            bias_init=lambda:nn.initializers.constant(0.0)
+            # kernel_init=lambda:nn.initializers.orthogonal(jnp.sqrt(2)),
+            # bias_init=lambda:nn.initializers.constant(0.0)
         )
         critic_params = critic_def.init(critic_key, observations)["params"]
         critic = TrainState.create(
@@ -210,7 +213,7 @@ class PPOLearner(Agent):
             params=critic_params,
             tx= optax.chain(
             optax.clip_by_global_norm(max_grad_norm),
-            optax.inject_hyperparams(optax.adamw)(
+            optax.inject_hyperparams(optax.adam)(
             learning_rate=critic_lr,
             eps=1e-5
         ),
@@ -228,7 +231,7 @@ class PPOLearner(Agent):
         #     eps=1e-5
         # ),
         # ))
-
+        # actor = _share_encoder(source=critic, target=actor)  #very important!!!!
         self._actor = actor
         self._critic = critic
         self._rng = rng

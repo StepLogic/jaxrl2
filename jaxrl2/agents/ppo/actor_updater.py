@@ -64,14 +64,15 @@ def update_actor(
         # breakpoint()
         # ratio between old and new policy, should be one at the first iteration
         ratio = jnp.exp(logp - logp_old)
-        
+        # jax.debug.print("ratios {ratio} logps_old {logp_old} logps {logps}",logp_old=logp_old,logps=logp,ratio=ratio)
+     
         clip_adv = jnp.clip(ratio, 1-clip_ratio, 1+clip_ratio) * advantages
         policy_loss= -jnp.minimum(ratio * advantages, clip_adv).mean()
         # entropy_loss = -jnp.mean(entropy)
-        if  hasattr(dist,"entropy"):
-            entropy_loss= -jnp.mean(dist.entropy())
-        else:
-            entropy_loss = -jnp.mean(-logp)
+        # # if  hasattr(dist,"entropy"):
+        entropy_loss= -jnp.mean(dist.entropy())
+        # # else:
+        # entropy_loss = -jnp.mean(-logp)
         actor_loss = policy_loss + ent_coeff * entropy_loss
 
         # Useful extra info
@@ -81,8 +82,10 @@ def update_actor(
         )
         clipfrac =jnp.mean(clipped)
         log_ratio = logp - logp_old
-        approx_kl = jnp.mean((jnp.exp(log_ratio) - 1) - log_ratio)
-        return actor_loss,  {"actor_loss": actor_loss,"mean_advantage":advantages.mean(),"entropy": -logp.mean(),"kl":approx_kl,"cf":clipfrac}
+        # approx_kl = jnp.mean((jnp.exp(log_ratio) - 1) - log_ratio)
+        approx_kl = jnp.mean(logp_old - logp)
+       
+        return actor_loss,  {"actor_loss": actor_loss,"mean_advantage":advantages.mean(),"entropy_loss": entropy_loss,"kl":approx_kl,"cf":clipfrac}
 
     # def loop_body(i, carry):
     #         actor,info = carry

@@ -86,6 +86,7 @@ def _share_encoder(source, target):
     for k, v in source.params.items():
         if "encoder" in k:
             replacers[k] = v
+            # print(k)
     # Use critic conv layers in actor:
     new_params = unfreeze(FrozenDict(target.params).copy(add_or_replace=replacers))
     return target.replace(params=new_params)

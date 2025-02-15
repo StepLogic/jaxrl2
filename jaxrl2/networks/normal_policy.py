@@ -41,7 +41,7 @@ class VariableStdNormalPolicy(nn.Module):
     action_dim: int
     dropout_rate: Optional[float] = None
     apply_tanh: bool = True
-    activations: Callable[[jnp.ndarray], jnp.ndarray] = nn.relu
+    activations: Callable[[jnp.ndarray], jnp.ndarray] = nn.tanh
     log_std_min: Optional[float] = -20
     log_std_max: Optional[float] = 2
     low: Optional[jnp.ndarray] = None
@@ -57,7 +57,7 @@ class VariableStdNormalPolicy(nn.Module):
         kernel_init= self.kernel_init or default_orthogonal_init
         bias_init = self.bias_init or default_bias_init
         outputs = PlainMLP(
-            self.hidden_dims, activate_final=True, dropout_rate=self.dropout_rate,kernel_init=kernel_init,bias_init=bias_init
+            self.hidden_dims, activate_final=False, dropout_rate=self.dropout_rate,kernel_init=kernel_init,bias_init=bias_init
         )(observations, training=training)
 
         action_logits = nn.Dense(self.action_dim,kernel_init=kernel_init(),bias_init=nn.initializers.constant(0.1))(outputs)
