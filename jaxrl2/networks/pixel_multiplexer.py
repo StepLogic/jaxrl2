@@ -109,7 +109,7 @@ class PixelMultiplexer(nn.Module):
 
             else:
                 # Handle continuous observations
-                x = nn.Dense(self.latent_dim, kernel_init=kernel_init(),name=f"encoder_{key}")(value)
+                x = nn.Dense(self.latent_dim, kernel_init=kernel_init())(value)
             x = nn.LayerNorm()(x)
             x = nn.tanh(x)
             processed_features.append(x)
