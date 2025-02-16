@@ -25,7 +25,7 @@ class Agent(object):
         return action_dist_jit(self._actor.apply_fn, self._actor.params, batch)
 
     def extract_features(self, batch:DatasetDict):
-        return extract_feature(self._actor.apply_fn, self._actor.params,batch)
+        return np.asarray(extract_feature(self._actor.apply_fn, self._actor.params,batch))
 
 
     def sample_actions(self, observations: np.ndarray) -> np.ndarray:

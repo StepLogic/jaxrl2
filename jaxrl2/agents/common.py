@@ -47,8 +47,9 @@ def extract_feature(
     actor_params: Params,
     observations: np.ndarray,
 ) -> jnp.ndarray:
-    dist = actor_apply_fn({"params": actor_params}, observations,mutable='intermediates')
-    features = dist['intermediates']['SowCNN']['features']
+    (_,outputs) = actor_apply_fn({"params": actor_params}, observations,mutable='intermediates')
+    # breakpoint()
+    features = outputs['intermediates']['features']
     return features
 
 @partial(jax.jit, static_argnames="actor_apply_fn")
