@@ -136,6 +136,7 @@ def _update_jit(
     new_actor, actor_info = update_actor(key, actor, critic, temp, batch)
     new_temp=None
     alpha_info={}
+    # print(enable_update_temperature)
     if enable_update_temperature:
         new_temp, alpha_info = update_temperature(
             temp, actor_info["entropy"], target_entropy
