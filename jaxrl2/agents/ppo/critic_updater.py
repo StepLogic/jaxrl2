@@ -25,13 +25,14 @@ def update_critic(
             {"params": critic_params}, batch["observations"]
         )
         returns=batch["returns"]
-        critic_loss = ((values - returns) ** 2).mean()
+        values = batch["values"] + jnp.clip(
+            values - batch["values"],
+            -0.2,
+            0.2,
+        )
+        critic_loss = vf_coeff*((values - returns) ** 2).mean()
         # v_loss_unclipped = (newvalue - ret) ** 2
-        # critic_loss_clipped = batch["values"] + jnp.clip(
-        #     values - batch["values"],
-        #     -0.2,
-        #     0.2,
-        # )
+ 
 
         # critic_loss = jnp.maximum(critic_loss, critic_loss_clipped)
         critic_loss = critic_loss.mean()
