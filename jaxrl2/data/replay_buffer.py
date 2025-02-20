@@ -164,7 +164,7 @@ class VariableCapacityBuffer(Dataset):
     ):
         if next_observation_space is None:
             next_observation_space = observation_space
-
+        
         observation_data = _init_replay_dict(observation_space, capacity)
         next_observation_data = _init_replay_dict(next_observation_space, capacity)
         dataset_dict = dict(
