@@ -24,6 +24,20 @@ def _init_replay_dict(
         raise TypeError()
 
 
+def _init_replay_dict_with_list(
+        obs_space: gym.Space, capacity: int
+) -> Union[np.ndarray, DatasetDict]:
+    if isinstance(obs_space, gym.spaces.Box):
+        return []
+    elif isinstance(obs_space, gym.spaces.Dict):
+        data_dict = {}
+        for k, v in obs_space.spaces.items():
+            data_dict[k] = _init_replay_dict_with_list(v, capacity)
+        return data_dict
+    else:
+        raise TypeError()
+
+
 def _insert_recursively(
         dataset_dict: DatasetDict, data_dict: DatasetDict, insert_index: int
 ):
@@ -39,18 +53,32 @@ def _insert_recursively(
 def _add_recursively(
         dataset_dict: DatasetDict, data_dict: DatasetDict, insert_index: int
 ):
-    if isinstance(dataset_dict, np.ndarray):
-        dataset_dict = np.append(dataset_dict,[data_dict],axis=0) 
-        # print(dataset_dict.shape)
+    if isinstance(dataset_dict, list):
+        dataset_dict.append(data_dict) 
         return dataset_dict
     elif isinstance(dataset_dict, dict):
         assert dataset_dict.keys() == data_dict.keys()
         for k in data_dict.keys():
             dataset_dict[k] = _add_recursively(dataset_dict[k], data_dict[k],insert_index)
         return dataset_dict
+    
     else:
+        print(dataset_dict)
         raise TypeError()
 
+
+def _sample(
+    dataset_dict: Union[np.ndarray, DatasetDict], indx: np.ndarray
+) -> DatasetDict:
+    if isinstance(dataset_dict, np.ndarray):
+        return dataset_dict[indx]
+    elif isinstance(dataset_dict, dict):
+        batch = {}
+        for k, v in dataset_dict.items():
+            batch[k] = _sample(v, indx)
+    else:
+        raise TypeError("Unsupported type.")
+    return batch
 
 class ReplayBuffer(Dataset):
     def __init__(
@@ -165,16 +193,17 @@ class VariableCapacityBuffer(Dataset):
         if next_observation_space is None:
             next_observation_space = observation_space
         
-        observation_data = _init_replay_dict(observation_space, capacity)
-        next_observation_data = _init_replay_dict(next_observation_space, capacity)
+        observation_data = _init_replay_dict_with_list(observation_space, capacity)
+        next_observation_data = _init_replay_dict_with_list(next_observation_space, capacity)
         dataset_dict = dict(
             observations=observation_data,
             next_observations=next_observation_data,
-            actions=np.empty((capacity, *action_space.shape), dtype=action_space.dtype),
-            rewards=np.empty((capacity,), dtype=np.float32),
-            masks=np.empty((capacity,), dtype=np.float32),
-            dones=np.empty((capacity,), dtype=bool),
+            actions=[],
+            rewards=[],
+            masks=[],
+            dones=[],
         )
+        # print(dataset_dict)
         # breakpoint()
         super().__init__(dataset_dict)
         self._size = 0
@@ -229,4 +258,22 @@ class VariableCapacityBuffer(Dataset):
         # print(indx)
         # breakpoint()
         samples = super().sample(batch_size, keys, indx)
-        return samples
+
+        if indx is None:
+            if hasattr(self.np_random, "integers"):
+                indx = self.np_random.integers(len(self), size=batch_size)
+            else:
+                indx = self.np_random.randint(len(self), size=batch_size)
+
+        batch = dict()
+
+        if keys is None:
+            keys = self.dataset_dict.keys()
+
+        for k in keys:
+            if isinstance(self.dataset_dict[k], dict):
+                batch[k] = _sample(self.dataset_dict[k], indx)
+            else:
+                batch[k] =np.array(self.dataset_dict[k])[indx]
+        return frozen_dict.freeze(batch)
+

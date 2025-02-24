@@ -15,7 +15,7 @@ from jaxrl2.agents.bc.actor_updater import log_prob_update
 from jaxrl2.utils.augmentations import batched_random_crop, batched_random_cutout
 from jaxrl2.data.dataset import DatasetDict
 from jaxrl2.networks.encoders import D4PGEncoder, ResNetV2Encoder,PlaceholderEncoder
-from jaxrl2.networks.normal_policy import UnitStdNormalPolicy
+from jaxrl2.networks.normal_policy import UnitStdNormalPolicy, VariableStdNormalPolicy
 from jaxrl2.networks.pixel_multiplexer import PixelMultiplexer
 from jaxrl2.types import Params, PRNGKey
 
@@ -76,7 +76,7 @@ class PixelBCLearner(Agent):
 
         if decay_steps is not None:
             actor_lr = optax.cosine_decay_schedule(actor_lr, decay_steps)
-        policy_def = UnitStdNormalPolicy(
+        policy_def = VariableStdNormalPolicy(
             hidden_dims, action_dim, dropout_rate=dropout_rate
         )
         actor_def = PixelMultiplexer(

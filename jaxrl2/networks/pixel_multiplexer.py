@@ -94,6 +94,7 @@ class PixelMultiplexer(nn.Module):
         kernel_init= self.kernel_init or default_init
         bias_init = self.bias_init or default_bias_init
         for key, value in observations.items():
+            value=jax.numpy.nan_to_num(value)
             if is_image_space(value):
                 value=value.astype(jnp.float32)
                 
@@ -107,6 +108,7 @@ class PixelMultiplexer(nn.Module):
                 x = nn.Dense(self.latent_dim, kernel_init=kernel_init(),bias_init=bias_init())(x)
             else:
                 # Handle continuous observations
+                # jax.debug.print("value {value}",value=value)
                 x = nn.Dense(self.latent_dim, kernel_init=kernel_init())(value)
             x = nn.LayerNorm()(x)
             x = nn.tanh(x)

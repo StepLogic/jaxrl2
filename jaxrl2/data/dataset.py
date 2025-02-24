@@ -26,6 +26,10 @@ def _check_lengths(dataset_dict: DatasetDict, dataset_len: Optional[int] = None)
             item_len = len(v)
             dataset_len = dataset_len or item_len
             assert dataset_len == item_len, "Inconsistent item lengths in the dataset."
+        elif isinstance(v, list):
+            item_len = len(v)
+            dataset_len = dataset_len or item_len
+            assert dataset_len == item_len, "Inconsistent item lengths in the dataset."
         else:
             raise TypeError("Unsupported type.")
     return dataset_len
@@ -48,7 +52,7 @@ def _sample(
     dataset_dict: Union[np.ndarray, DatasetDict], indx: np.ndarray
 ) -> DatasetDict:
     if isinstance(dataset_dict, np.ndarray):
-        return dataset_dict[indx]
+        return np.array(dataset_dict)[indx]
     elif isinstance(dataset_dict, dict):
         batch = {}
         for k, v in dataset_dict.items():
