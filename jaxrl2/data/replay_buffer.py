@@ -66,19 +66,32 @@ def _add_recursively(
         print(dataset_dict)
         raise TypeError()
 
-
-def _sample(
-    dataset_dict: Union[np.ndarray, DatasetDict], indx: np.ndarray
-) -> DatasetDict:
-    if isinstance(dataset_dict, np.ndarray):
-        return dataset_dict[indx]
+def _convert_to_np_array_recursively(
+        dataset_dict: DatasetDict
+):
+    if isinstance(dataset_dict, list):
+        return np.array(dataset_dict)
     elif isinstance(dataset_dict, dict):
-        batch = {}
-        for k, v in dataset_dict.items():
-            batch[k] = _sample(v, indx)
+        for k in dataset_dict.keys():
+            dataset_dict[k] = _convert_to_np_array_recursively(dataset_dict[k])
+        return dataset_dict
     else:
-        raise TypeError("Unsupported type.")
-    return batch
+        return dataset_dict
+
+
+
+# def _sample_list(
+#     dataset_dict: Union[np.ndarray, DatasetDict], indx: np.ndarray
+# ) -> DatasetDict:
+#     if isinstance(dataset_dict,list):
+#         return np.array(dataset_dict)[indx]
+#     elif isinstance(dataset_dict, dict):
+#         batch = {}
+#         for k, v in dataset_dict.items():
+#             batch[k] = _sample_list(v, indx)
+#     else:
+#         raise TypeError("Unsupported type.")
+#     return batch
 
 class ReplayBuffer(Dataset):
     def __init__(
@@ -242,6 +255,9 @@ class VariableCapacityBuffer(Dataset):
     #         data = self.sample(**sample_args)  
     #         yield jax.device_put(data)
     #         m = (m+1) % len(self)
+    def optimize(self):
+       self.dataset_dict= _convert_to_np_array_recursively(self.dataset_dict)
+       print("Done Optimizing")
 
     def sample(self,
                batch_size: int,
@@ -257,13 +273,7 @@ class VariableCapacityBuffer(Dataset):
                 indx = self.np_random.randint(len(self), size=batch_size)
         # print(indx)
         # breakpoint()
-        samples = super().sample(batch_size, keys, indx)
-
-        if indx is None:
-            if hasattr(self.np_random, "integers"):
-                indx = self.np_random.integers(len(self), size=batch_size)
-            else:
-                indx = self.np_random.randint(len(self), size=batch_size)
+        # samples = super().sample(batch_size, keys, indx)
 
         batch = dict()
 
@@ -274,6 +284,6 @@ class VariableCapacityBuffer(Dataset):
             if isinstance(self.dataset_dict[k], dict):
                 batch[k] = _sample(self.dataset_dict[k], indx)
             else:
-                batch[k] =np.array(self.dataset_dict[k])[indx]
+                batch[k] =self.dataset_dict[k][indx]
         return frozen_dict.freeze(batch)
 
