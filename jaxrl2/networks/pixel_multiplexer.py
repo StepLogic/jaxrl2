@@ -103,6 +103,7 @@ class PixelMultiplexer(nn.Module):
                     value
                 )
                 x = self.encoder(name=f"encoder_{key}")(value)
+                self.sow('intermediates', 'features', x)
                 x = nn.Dense(self.latent_dim, kernel_init=kernel_init(),bias_init=bias_init())(x)
                 if self.stop_gradient:
                     x = jax.lax.stop_gradient(x)
@@ -118,7 +119,7 @@ class PixelMultiplexer(nn.Module):
             x = jnp.concatenate(processed_features, axis=-1)
         else:
             x = processed_features[0]
-        self.sow('intermediates', 'features', x)
+
         # Pass through the network
         if actions is None:
             return self.network(x, training=training)
