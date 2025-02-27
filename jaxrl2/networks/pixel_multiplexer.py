@@ -94,8 +94,10 @@ class PixelMultiplexer(nn.Module):
         kernel_init= self.kernel_init or default_init
         bias_init = self.bias_init or default_bias_init
         for key, value in observations.items():
+            # value=jax.numpy.nan_to_num(value)
             if is_image_space(value):
                 value=value.astype(jnp.float32)
+                
                 value = jax.lax.cond(
                     jnp.max(value) > 1.0,
                     lambda x: x.astype(jnp.float32)/255.0,  # true_fn: normalize
@@ -105,15 +107,16 @@ class PixelMultiplexer(nn.Module):
                 x = self.encoder(name=f"encoder_{key}")(value)
                 self.sow('intermediates', 'features', x)
                 x = nn.Dense(self.latent_dim, kernel_init=kernel_init(),bias_init=bias_init())(x)
-                if self.stop_gradient:
-                    x = jax.lax.stop_gradient(x)
-
             else:
                 # Handle continuous observations
+                # jax.debug.print("value {value}",value=value)
                 x = nn.Dense(self.latent_dim, kernel_init=kernel_init())(value)
             x = nn.LayerNorm()(x)
             x = nn.tanh(x)
             processed_features.append(x)
+        if self.stop_gradient:
+            x = jax.lax.stop_gradient(x)
+
         # Combine all processed features
         if len(processed_features) > 1:
             x = jnp.concatenate(processed_features, axis=-1)

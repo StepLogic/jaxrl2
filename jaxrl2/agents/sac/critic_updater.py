@@ -31,8 +31,8 @@ def update_critic(
         next_q = next_qs.mean(axis=0)
     else:
         raise NotImplemented()
-
-    target_q = batch["rewards"] + discount * batch["masks"] * next_q
+    # value=jax.numpy.nan_to_num(            value=jax.numpy.nan_to_num(value))
+    target_q = jax.numpy.nan_to_num(batch["rewards"]) + discount * batch["masks"] * next_q
 
     if backup_entropy:
         target_q -= (

@@ -6,6 +6,7 @@ from typing import Dict, Optional, Sequence, Tuple, Union
 
 import jax
 import jax.numpy as jnp
+from jaxrl2.utils.misc import augment_batch
 import optax
 from flax.core.frozen_dict import FrozenDict
 from flax.training.train_state import TrainState
@@ -40,25 +41,17 @@ def _update_jit(
     critic_reduction: str,
     share_encoder: bool,
 ) -> Tuple[PRNGKey, TrainState, TrainState, Params, TrainState, Dict[str, float]]:
-    batch = _unpack(batch)
 
     if share_encoder:
         actor = _share_encoder(source=critic, target=actor)
         value = _share_encoder(source=critic, target=value)
 
     rng, key = jax.random.split(rng)
-    aug_pixels = batched_random_crop(key, batch["observations"]["pixels"])
-    observations = batch["observations"].copy(add_or_replace={"pixels": aug_pixels})
-    batch = batch.copy(add_or_replace={"observations": observations})
-
-    rng, key = jax.random.split(rng)
-    aug_next_pixels = batched_random_crop(key, batch["next_observations"]["pixels"])
-    next_observations = batch["next_observations"].copy(
-        add_or_replace={"pixels": aug_next_pixels}
-    )
-    batch = batch.copy(add_or_replace={"next_observations": next_observations})
+    # breakpoint()
+    rng, batch = augment_batch(key, batch,batched_random_crop)
 
     target_critic = critic.replace(params=target_critic_params)
+    # breakpoint()
     new_value, value_info = update_v(
         target_critic, value, batch, expectile, critic_reduction
     )
@@ -106,6 +99,8 @@ class PixelIQLLearner(Agent):
         critic_reduction: str = "min",
         dropout_rate: Optional[float] = None,
         share_encoder: bool = False,
+        freeze_encoders:bool=False,
+        cosine_decay:bool=False,
         encoder: str = "d4pg",
     ):
         """
@@ -146,7 +141,7 @@ class PixelIQLLearner(Agent):
             encoder=encoder_def,
             network=policy_def,
             latent_dim=latent_dim,
-            stop_gradient=share_encoder,
+            stop_gradient=share_encoder or freeze_encoders,
         )
         actor_params = actor_def.init(actor_key, observations)["params"]
         actor = TrainState.create(
@@ -157,7 +152,8 @@ class PixelIQLLearner(Agent):
 
         critic_def = StateActionEnsemble(hidden_dims, num_qs=2)
         critic_def = PixelMultiplexer(
-            encoder=encoder_def, network=critic_def, latent_dim=latent_dim
+            encoder=encoder_def, network=critic_def, latent_dim=latent_dim,
+                      stop_gradient=freeze_encoders,
         )
         critic_params = critic_def.init(critic_key, observations, actions)["params"]
         critic = TrainState.create(
@@ -172,7 +168,7 @@ class PixelIQLLearner(Agent):
             encoder=encoder_def,
             network=value_def,
             latent_dim=latent_dim,
-            stop_gradient=share_encoder,
+            stop_gradient=share_encoder or freeze_encoders,
         )
         value_params = value_def.init(value_key, observations)["params"]
         value = TrainState.create(

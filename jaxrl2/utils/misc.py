@@ -34,6 +34,7 @@ def augment_observations(
     if isinstance(observations, (np.ndarray, jnp.ndarray)):
         if is_image_space(observations):
             rng, split_rng = jax.random.split(rng)
+            
             return rng, aug_func(split_rng, observations)
         return rng, observations
     
@@ -60,6 +61,7 @@ def augment_batch(
     observations = batch["observations"]
     if "next_observations" in batch.keys():
         next_observations = batch["next_observations"]
+
     
     # Handle observations
     rng, aug_observations = augment_observations(rng, observations, aug_func)

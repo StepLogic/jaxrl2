@@ -41,7 +41,7 @@ def update_actor(
         log_probs = dist.log_prob(batch["actions"])
         actor_loss = -(exp_a * log_probs).mean()
 
-        return actor_loss, {"actor_loss": actor_loss, "adv": q - v}
+        return actor_loss, {"actor_loss": actor_loss, "adv": jnp.mean(q - v)}
 
     grads, info = jax.grad(actor_loss_fn, has_aux=True)(actor.params)
     new_actor = actor.apply_gradients(grads=grads)
