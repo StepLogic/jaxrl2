@@ -5,6 +5,7 @@ from typing import Dict, Optional, Sequence, Tuple, Union
 
 import jax
 import jax.numpy as jnp
+from jaxrl2.networks.normal_tanh_policy import NormalTanhPolicy
 from jaxrl2.utils.misc import augment_batch
 import optax
 from flax.core.frozen_dict import FrozenDict
@@ -28,7 +29,7 @@ def _update_jit(
     # if augument:
     rng, batch = augment_batch(key, batch,batched_random_crop)
     rng, key = jax.random.split(rng)
-    rng, batch = augment_batch(key, batch,batched_random_cutout)
+    # rng, batch = augment_batch(key, batch,batched_random_cutout)
 
     rng, new_actor, actor_info = log_prob_update(rng, actor, batch)
 
@@ -76,7 +77,7 @@ class PixelBCLearner(Agent):
 
         if decay_steps is not None:
             actor_lr = optax.cosine_decay_schedule(actor_lr, decay_steps)
-        policy_def = VariableStdNormalPolicy(
+        policy_def = NormalTanhPolicy(
             hidden_dims, action_dim, dropout_rate=dropout_rate
         )
         actor_def = PixelMultiplexer(

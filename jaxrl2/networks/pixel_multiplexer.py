@@ -94,7 +94,7 @@ class PixelMultiplexer(nn.Module):
         kernel_init= self.kernel_init or default_init
         bias_init = self.bias_init or default_bias_init
         for key, value in observations.items():
-            value=jax.numpy.nan_to_num(value)
+            # value=jax.numpy.nan_to_num(value)
             if is_image_space(value):
                 value=value.astype(jnp.float32)
                 
