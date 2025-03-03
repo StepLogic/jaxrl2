@@ -61,5 +61,6 @@ class VariableStdNormalPolicy(nn.Module):
         )(observations, training=training)
 
         action_logits = nn.Dense(self.action_dim,kernel_init=kernel_init(),bias_init=nn.initializers.constant(0.1))(outputs)
-        log_std = self.param("log_std", constant(self.log_std_init), (self.action_dim,))
+        # log_std = self.param("log_std", constant(self.log_std_init), (self.action_dim,))
+        log_std=nn.Dense(self.action_dim,kernel_init=kernel_init(),bias_init=nn.initializers.constant(self.log_std_init))(outputs)
         return distrax.MultivariateNormalDiag(loc=action_logits, scale_diag=jnp.exp(log_std))

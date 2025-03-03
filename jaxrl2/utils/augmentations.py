@@ -66,6 +66,20 @@ def batched_random_cutout(key, imgs, max_size=16):
         imgs
     )
 
+
+# def adjust_brightness(image: jnp.Array, delta:float):
+#   return image + jnp.asarray(delta, image.dtype)
+
+# def random_brightness(
+#     key: jax.PRNGKey,
+#     image: jnp.Array,
+#     max_delta: float=0.1,
+# ) -> jnp.Array:
+#   """`adjust_brightness(...)` with random delta in `[-max_delta, max_delta)`."""
+#   # DO NOT REMOVE - Logging usage.
+#   delta = jax.random.uniform(key, (), minval=-max_delta, maxval=max_delta)
+#   return adjust_brightness(image, delta)
+
 # def batched_random_cutout(key, imgs):
 #     keys = jax.random.split(key, imgs.shape[0])
 #     rng = jax.random.uniform(key)
