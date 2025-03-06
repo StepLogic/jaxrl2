@@ -14,7 +14,7 @@ class D4PGEncoder(nn.Module):
     padding: str = "VALID"
     kernel_init: Optional[Callable] = None
     @nn.compact
-    def __call__(self, observations: jnp.ndarray) -> jnp.ndarray:
+    def __call__(self, observations: jnp.ndarray,train=True) -> jnp.ndarray:
         assert len(self.features) == len(self.strides)
         # breakpoint()
         observations=observations.astype(jnp.float32)

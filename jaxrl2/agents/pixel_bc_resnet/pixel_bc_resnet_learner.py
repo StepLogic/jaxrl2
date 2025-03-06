@@ -1,16 +1,18 @@
 """Implementations of algorithms for continuous control."""
 
 from functools import partial
-from typing import Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import distrax
 import jax
 import jax.numpy as jnp
 from jaxrl2.networks.encoders.pretrained_resnet import PretrainedResNet
 from jaxrl2.networks.normal_tanh_policy import NormalTanhPolicy
 from jaxrl2.utils.misc import augment_batch
+import numpy as np
 import optax
 from flax.core.frozen_dict import FrozenDict
-from flax.training.train_state import TrainState
+from  flax.training import train_state
 
 from jaxrl2.agents.agent import Agent
 from jaxrl2.agents.bc.actor_updater import log_prob_update
@@ -21,6 +23,20 @@ from jaxrl2.networks.normal_policy import UnitStdNormalPolicy, VariableStdNormal
 from jaxrl2.networks.pixel_multiplexer import PixelMultiplexer
 from jaxrl2.types import Params, PRNGKey
 import flaxmodels as fm
+
+class TrainState(train_state.TrainState):
+  batch_stats: Any
+
+@partial(jax.jit, static_argnames="actor_apply_fn")
+def eval_actions_jit(
+    actor_apply_fn: Callable[..., distrax.Distribution],
+    actor_params: Params,
+    batch_stats:Any,
+    observations: np.ndarray,
+) -> jnp.ndarray:
+    dist = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats},observations)
+    return dist.mode()
+
 @jax.jit
 def _update_jit(
     rng: PRNGKey, actor: TrainState, batch: TrainState
@@ -28,15 +44,32 @@ def _update_jit(
     rng, key = jax.random.split(rng)
     # if augument:
     rng, batch = augment_batch(key, batch,batched_random_crop)
+    # rng, key = jax.random.split(rng)
+    # rng, batch = augment_batch(key, batch,batched_random_cutout)
+
+    # rng, new_actor, actor_info = log_prob_update(rng, actor, batch)
     rng, key = jax.random.split(rng)
-    rng, batch = augment_batch(key, batch,batched_random_cutout)
 
-    rng, new_actor, actor_info = log_prob_update(rng, actor, batch)
+    def loss_fn(actor_params: Params,batch_stats:Params) -> Tuple[jnp.ndarray, Dict[str, float]]:
+        dist,updates = actor.apply_fn(
+            {"params": actor_params,"batch_stats":batch_stats},
+            batch["observations"],
+            training=True,
+            rngs={"dropout": key},
+            mutable=['batch_stats']
+        )
+        log_probs = dist.log_prob(batch["actions"])
+        actor_loss = -log_probs.mean()
+        return actor_loss,({"bc_loss": actor_loss},updates)
 
-    return rng, new_actor, actor_info
+    grads, (info,updates) = jax.grad(loss_fn, has_aux=True)(actor.params,actor.batch_stats)
+    new_actor = actor.apply_gradients(grads=grads)
+    new_actor = new_actor.replace(batch_stats=updates['batch_stats'])
+    return rng, new_actor, info
 
 
-class PixelBCLearner(Agent):
+
+class PixelResNetBCLearner(Agent):
     def __init__(
         self,
         seed: int,
@@ -62,23 +95,8 @@ class PixelBCLearner(Agent):
         rng = jax.random.PRNGKey(seed)
         rng, actor_key = jax.random.split(rng)
 
-        if encoder == "d4pg":
-            encoder_def = partial(
-                D4PGEncoder,
-                features=cnn_features,
-                filters=cnn_filters,
-                strides=cnn_strides,
-                padding=cnn_padding,
-            )
-        elif encoder == "resnet":
-            encoder_def = partial(ResNetV2Encoder, stage_sizes=(2, 2, 2, 2))
-        elif encoder == "pretrained-resnet":
-            encoder_def = partial(PretrainedResNet)
-            # rng, encoder_key = jax.random.split(rng)
-            # resnet18 = fm.ResNet18(output='logits', pretrained='imagenet')
-            # encoder_def = partial(resnet18)
-        else:
-            encoder_def = partial(PlaceholderEncoder)
+
+        encoder_def = partial(PretrainedResNet)
 
         if decay_steps is not None:
             actor_lr = optax.cosine_decay_schedule(actor_lr, decay_steps)
@@ -88,10 +106,13 @@ class PixelBCLearner(Agent):
         actor_def = PixelMultiplexer(
             encoder=encoder_def, network=policy_def, latent_dim=latent_dim
         )
-        actor_params = actor_def.init(actor_key, observations)["params"]
+        params = actor_def.init(actor_key, observations)
+        actor_params=params["params"]
+        batch_stats=params["batch_stats"]
         actor = TrainState.create(
             apply_fn=actor_def.apply,
             params=actor_params,
+            batch_stats=batch_stats,
             tx=optax.adam(learning_rate=actor_lr),
         )
 
@@ -105,3 +126,8 @@ class PixelBCLearner(Agent):
         self._actor = new_actor
 
         return info
+    def eval_actions(self, observations: np.ndarray) -> np.ndarray:
+        actions = eval_actions_jit(
+                    self._actor.apply_fn, self._actor.params,self._actor.batch_stats,observations
+                )
+        return np.asarray(actions)

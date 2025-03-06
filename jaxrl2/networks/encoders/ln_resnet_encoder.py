@@ -57,7 +57,7 @@ class ResNetV2Encoder(nn.Module):
     act: Callable = nn.relu
 
     @nn.compact
-    def __call__(self, x):
+    def __call__(self, x,train=True):
         conv = partial(nn.Conv, use_bias=False, dtype=self.dtype)
         norm = partial(MyGroupNorm, num_groups=4, epsilon=1e-5, dtype=self.dtype)
         x=x.astype(jnp.float32)

@@ -18,13 +18,12 @@ def log_prob_update(
             {"params": actor_params},
             batch["observations"],
             training=True,
-            rngs={"dropout": key},
+            rngs={"dropout": key}
         )
         log_probs = dist.log_prob(batch["actions"])
         actor_loss = -log_probs.mean()
-        return actor_loss, {"bc_loss": actor_loss}
-
-    grads, info = jax.grad(loss_fn, has_aux=True)(actor.params)
+        return actor_loss,{"bc_loss": actor_loss}
+    grads, (info,updates) = jax.grad(loss_fn, has_aux=True)(actor.params)
     new_actor = actor.apply_gradients(grads=grads)
 
     return rng, new_actor, info

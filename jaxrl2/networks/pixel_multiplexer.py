@@ -104,7 +104,10 @@ class PixelMultiplexer(nn.Module):
                     lambda x: x.astype(jnp.float32), # false_fn: keep as is
                     value
                 )
-                x = self.encoder(name=f"encoder_{key}")(value)
+                x = self.encoder(name=f"encoder_{key}")(value,train=training)
+                if self.stop_gradient:
+                    x = jax.lax.stop_gradient(x)
+
                 self.sow('intermediates', 'features', x)
                 x = nn.Dense(self.latent_dim, kernel_init=kernel_init(),bias_init=bias_init())(x)
             else:
@@ -114,9 +117,7 @@ class PixelMultiplexer(nn.Module):
             x = nn.LayerNorm()(x)
             x = nn.tanh(x)
             processed_features.append(x)
-        if self.stop_gradient:
-            x = jax.lax.stop_gradient(x)
-
+ 
         # Combine all processed features
         if len(processed_features) > 1:
             x = jnp.concatenate(processed_features, axis=-1)

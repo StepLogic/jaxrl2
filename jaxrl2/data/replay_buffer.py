@@ -49,6 +49,24 @@ def _insert_recursively(
             _insert_recursively(dataset_dict[k], data_dict[k], insert_index)
     else:
         raise TypeError()
+    
+def _overwrite_recursively(
+        dataset_dict: DatasetDict, data_dict: DatasetDict, insert_index: int
+):
+    if isinstance(dataset_dict, np.ndarray):
+        dataset_dict[insert_index] = data_dict
+    elif isinstance(dataset_dict, dict):
+        assert dataset_dict.keys() == data_dict.keys()
+        for k in dataset_dict.keys():
+            _overwrite_recursively(dataset_dict[k], data_dict[k], insert_index)
+    elif isinstance(dataset_dict, list):
+        dataset_dict=np.array(dataset_dict) 
+        dataset_dict[insert_index]=dataset_dict
+        # return dataset_dict
+    else:
+        breakpoint()
+        raise TypeError()
+
 
 def _add_recursively(
         dataset_dict: DatasetDict, data_dict: DatasetDict, insert_index: int
@@ -148,6 +166,31 @@ class ReplayBuffer(Dataset):
         while queue:
             yield queue.popleft()
             enqueue(1)
+    
+    def get_sequential_iterator(self, queue_size: int = 2, sample_args: dict = None):
+        if sample_args is None:
+            sample_args = {}
+        m = 0
+        batch_size = sample_args.get("batch_size", 1)
+        while m * batch_size < len(self):
+            data = self.sequential_sample(**{**sample_args, "k": m})  
+            yield jax.device_put(data)
+            m += 1 
+    
+              
+    def sequential_sample(self,
+               batch_size: int,
+               keys: Optional[Iterable[str]] = None,
+               indx: Optional[np.ndarray] = None,
+               k=0,
+               ) -> frozen_dict.FrozenDict:
+        buffer_size=len(self)
+        if indx is None:
+            start=min(k*batch_size,buffer_size)
+            end=min(buffer_size,(k+1)*batch_size)
+            indx=np.array(list(range(start,end)))
+        samples = super().sample(batch_size, keys, indx)
+        return samples
 
     def sample_future_observation(self, indices: np.ndarray, sample_futures: str = "uniform"):
         if sample_futures == 'uniform':
@@ -232,6 +275,42 @@ class VariableCapacityBuffer(Dataset):
         self.dataset_dict=_add_recursively(self.dataset_dict, data_dict, self._insert_index)
         self._size += 1
         # breakpoint()
+    def overwrite(self, data_dict: DatasetDict):
+        if self._capacity < self._size:
+            self._capacity = max(10,int(self._size/3))
+            print(self._capacity)
+            # breakpoint()
+        # breakpoint()
+        _overwrite_recursively(self.dataset_dict, data_dict, self._insert_index)
+        self._insert_index = (self._insert_index + 1) % self._capacity
+        self._size = min(self._size + 1, self._capacity)
+        
+
+    def get_sequential_iterator(self, queue_size: int = 2, sample_args: dict = None):
+        if sample_args is None:
+            sample_args = {}
+        m = 0
+        batch_size = sample_args.get("batch_size", 1)
+        while m * batch_size < len(self):
+            data = self.sequential_sample(**{**sample_args, "k": m})  
+            yield jax.device_put(data)
+            m += 1 
+    
+              
+    def sequential_sample(self,
+               batch_size: int,
+               keys: Optional[Iterable[str]] = None,
+               indx: Optional[np.ndarray] = None,
+               k=0,
+               ) -> frozen_dict.FrozenDict:
+        buffer_size=len(self)
+        if indx is None:
+            start=min(k*batch_size,buffer_size)
+            end=min(buffer_size,(k+1)*batch_size)
+            indx=np.array(list(range(start,end)))
+        samples = super().sample(batch_size, keys, indx)
+        return samples
+
 
     def get_iterator(self, queue_size: int = 2, sample_args: dict = {}):
         # See https://flax.readthedocs.io/en/latest/_modules/flax/jax_utils.html#prefetch_to_device
@@ -257,7 +336,7 @@ class VariableCapacityBuffer(Dataset):
     #         m = (m+1) % len(self)
     def optimize(self):
        self.dataset_dict= _convert_to_np_array_recursively(self.dataset_dict)
-       print("Done Optimizing")
+    #    print("Done Optimizing")
 
     def sample(self,
                batch_size: int,

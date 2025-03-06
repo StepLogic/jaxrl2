@@ -28,7 +28,7 @@ def eval_actions_jit(
     actor_params: Params,
     observations: np.ndarray,
 ) -> jnp.ndarray:
-    dist = actor_apply_fn({"params": actor_params}, observations)
+    dist= actor_apply_fn({"params": actor_params},observations)
     return dist.mode()
 
 
