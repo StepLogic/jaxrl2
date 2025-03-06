@@ -28,8 +28,8 @@ def _update_jit(
     rng, key = jax.random.split(rng)
     # if augument:
     rng, batch = augment_batch(key, batch,batched_random_crop)
-    rng, key = jax.random.split(rng)
-    rng, batch = augment_batch(key, batch,batched_random_cutout)
+    # rng, key = jax.random.split(rng)
+    # rng, batch = augment_batch(key, batch,batched_random_cutout)
 
     rng, new_actor, actor_info = log_prob_update(rng, actor, batch)
 

@@ -20,7 +20,10 @@ def log_prob_update(
             training=True,
             rngs={"dropout": key}
         )
-        log_probs = dist.log_prob(batch["actions"])
+        try:
+            log_probs = dist.log_prob(batch["actions"])
+        except:
+            jax.debug.print("action {actions}" ,action=batch["actions"])
         actor_loss = -log_probs.mean()
         return actor_loss,{"bc_loss": actor_loss}
     grads, (info,updates) = jax.grad(loss_fn, has_aux=True)(actor.params)
