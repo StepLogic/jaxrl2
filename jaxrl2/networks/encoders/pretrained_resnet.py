@@ -143,7 +143,7 @@ class PretrainedResNet(nn.Module):
                     use_bias=False,
                     dtype=self.dtype)(x)
         act['conv1'] = x
-        print(train)
+        # print(train)
         x = batch_norm(x,
                            train=train,
                            epsilon=1e-05,

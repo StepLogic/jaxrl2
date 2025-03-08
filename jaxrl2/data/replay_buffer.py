@@ -1,4 +1,5 @@
 import collections
+import random
 from typing import Optional, Union, Iterable, Callable
 
 import gymnasium as gym
@@ -170,28 +171,39 @@ class ReplayBuffer(Dataset):
     def get_sequential_iterator(self, queue_size: int = 2, sample_args: dict = None):
         if sample_args is None:
             sample_args = {}
-        m = 0
+        
+        # Shuffle all indices once at the beginning
+        all_indices = list(range(len(self)))
+        random.shuffle(all_indices)
+
         batch_size = sample_args.get("batch_size", 1)
+        m = 0
+        # print("Number of batches",int(len(all_indices)/batch_size))
         while m * batch_size < len(self):
-            data = self.sequential_sample(**{**sample_args, "k": m})  
+            # Get the next batch of indices
+            start = m * batch_size
+            end = min((m + 1) * batch_size, len(self))
+            batch_indices = all_indices[start:end]
+            
+            # Sample data using the shuffled indices
+            data = self.sequential_sample(batch_size=batch_size, indx=np.array(batch_indices))
             yield jax.device_put(data)
-            m += 1 
-    
-              
+            m += 1
+
     def sequential_sample(self,
-               batch_size: int,
-               keys: Optional[Iterable[str]] = None,
-               indx: Optional[np.ndarray] = None,
-               k=0,
-               ) -> frozen_dict.FrozenDict:
-        buffer_size=len(self)
+                        batch_size: int,
+                        keys: Optional[Iterable[str]] = None,
+                        indx: Optional[np.ndarray] = None,
+                        k=0,
+                        ) -> frozen_dict.FrozenDict:
         if indx is None:
-            start=min(k*batch_size,buffer_size)
-            end=min(buffer_size,(k+1)*batch_size)
-            indx=np.array(list(range(start,end)))
+            # If no indices are provided, generate a random batch of indices
+            buffer_size = len(self)
+            indx = np.random.choice(buffer_size, size=batch_size, replace=False)
+        
+        # Sample the data using the provided indices
         samples = super().sample(batch_size, keys, indx)
         return samples
-
     def sample_future_observation(self, indices: np.ndarray, sample_futures: str = "uniform"):
         if sample_futures == 'uniform':
             ep_begin = indices - _sample(self.dataset_dict['observations']['index'], indices)
