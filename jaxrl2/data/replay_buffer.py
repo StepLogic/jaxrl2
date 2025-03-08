@@ -178,17 +178,22 @@ class ReplayBuffer(Dataset):
 
         batch_size = sample_args.get("batch_size", 1)
         m = 0
-        # print("Number of batches",int(len(all_indices)/batch_size))
+        queue = collections.deque()
+        def enqueue(n,m):
+            for _ in range(n):
+                start = m * batch_size
+                end = min((m + 1) * batch_size, len(self))
+                batch_indices = all_indices[start:end]
+                # Sample data using the shuffled indices
+                data = self.sequential_sample(batch_size=batch_size, indx=np.array(batch_indices))
+                queue.append(jax.device_put(data))
+               
+        enqueue(queue_size,m)
         while m * batch_size < len(self):
-            # Get the next batch of indices
-            start = m * batch_size
-            end = min((m + 1) * batch_size, len(self))
-            batch_indices = all_indices[start:end]
-            
-            # Sample data using the shuffled indices
-            data = self.sequential_sample(batch_size=batch_size, indx=np.array(batch_indices))
-            yield jax.device_put(data)
+            yield queue.popleft()
             m += 1
+            enqueue(1,m)
+
 
     def sequential_sample(self,
                         batch_size: int,
