@@ -13,7 +13,7 @@ import numpy as np
 import optax
 from flax.core.frozen_dict import FrozenDict
 from  flax.training import train_state
-
+import flax.linen as nn
 from jaxrl2.agents.agent import Agent
 from jaxrl2.agents.bc.actor_updater import log_prob_update
 from jaxrl2.utils.augmentations import batched_random_crop, batched_random_cutout
@@ -26,6 +26,37 @@ import flaxmodels as fm
 
 class TrainState(train_state.TrainState):
   batch_stats: Any
+
+
+#     def action_dist_jit(
+#     actor_apply_fn: Callable[..., distrax.Distribution],
+#     actor_params: Params,
+#     observations: np.ndarray,
+# ) -> jnp.ndarray:
+#     dist = actor_apply_fn({"params": actor_params}, observations)
+#     return dist
+
+
+@partial(jax.jit, static_argnames="actor_apply_fn")
+def extract_feature(
+    actor_apply_fn: Callable[..., distrax.Distribution],
+    actor_params: Params,
+    batch_stats:Any,
+    observations: np.ndarray,
+) -> jnp.ndarray:
+    (_,outputs) = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats}, observations,mutable='intermediates')
+    features = outputs['intermediates']['features']
+    return features
+
+@partial(jax.jit, static_argnames="actor_apply_fn")
+def action_dist_jit(
+    actor_apply_fn: Callable[..., distrax.Distribution],
+    actor_params: Params,
+    batch_stats:Any,
+    observations: np.ndarray,
+) -> jnp.ndarray:
+    dist = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats},observations)
+    return dist
 
 @partial(jax.jit, static_argnames="actor_apply_fn")
 def eval_actions_jit(
@@ -44,11 +75,9 @@ def _update_jit(
     rng, key = jax.random.split(rng)
     # if augument:
     rng, batch = augment_batch(key, batch,batched_random_crop)
-    # rng, key = jax.random.split(rng)
-    # rng, batch = augment_batch(key, batch,batched_random_cutout)
-
-    # rng, new_actor, actor_info = log_prob_update(rng, actor, batch)
     rng, key = jax.random.split(rng)
+    # rng, batch = augment_batch(key, batch,batched_random_cutout)
+    # rng, key = jax.random.split(rng)
 
     def loss_fn(actor_params: Params,batch_stats:Params) -> Tuple[jnp.ndarray, Dict[str, float]]:
         dist,updates = actor.apply_fn(
@@ -58,8 +87,13 @@ def _update_jit(
             rngs={"dropout": key},
             mutable=['batch_stats']
         )
-        log_probs = dist.log_prob(batch["actions"])
-        actor_loss = -log_probs.mean()
+        log_probs = dist.log_prob(batch["actions"]) 
+        
+        # log_probs = log_probs.mean() 
+        clipped_log_probs=jnp.clip(log_probs,-2.9,0)
+        # actor_loss = jnp.mean(jnp.square(dist.mean() - batch["actions"]))
+        actor_loss = -clipped_log_probs.mean() + jnp.mean(jnp.square(dist.mean() - batch["actions"]))
+        # + 0.1*jnp.mean(jnp.square(dist.mode()-batch["actions"]))
         return actor_loss,({"bc_loss": actor_loss},updates)
 
     grads, (info,updates) = jax.grad(loss_fn, has_aux=True)(actor.params,actor.batch_stats)
@@ -101,21 +135,31 @@ class PixelResNetBCLearner(Agent):
         if decay_steps is not None:
             actor_lr = optax.cosine_decay_schedule(actor_lr, decay_steps)
         policy_def = VariableStdNormalPolicy(
-            hidden_dims, action_dim, dropout_rate=dropout_rate
+            hidden_dims, action_dim, dropout_rate=dropout_rate ,use_layer_norm=True,activations=nn.relu
         )
         actor_def = PixelMultiplexer(
-            encoder=encoder_def, network=policy_def, latent_dim=latent_dim
-        )
+            encoder=encoder_def, network=policy_def, latent_dim=latent_dim        )
         params = actor_def.init(actor_key, observations)
         actor_params=params["params"]
         batch_stats=params["batch_stats"]
+        # warmup_steps = 2*int(4e5)  # Adjust based on your dataset size
+        # total_steps = 10*int(4e5)  # Total training steps planned
+
+        # lr_schedule = optax.warmup_cosine_decay_schedule(
+        #     init_value=0.0,
+        #     peak_value=actor_lr,
+        #     warmup_steps=warmup_steps,
+        #     decay_steps=total_steps - warmup_steps,
+        #     end_value=actor_lr * 0.1  # Final learning rate will be 10% of peak
+        # )
+
+        # Create TrainState with the scheduler
         actor = TrainState.create(
             apply_fn=actor_def.apply,
             params=actor_params,
             batch_stats=batch_stats,
             tx=optax.adam(learning_rate=actor_lr),
         )
-
         self._rng = rng
         self._actor = actor
 
@@ -126,6 +170,13 @@ class PixelResNetBCLearner(Agent):
         self._actor = new_actor
 
         return info
+    
+    def extract_features(self, batch:DatasetDict):
+        return np.asarray(extract_feature(self._actor.apply_fn, self._actor.params,self._actor.batch_stats,batch))
+
+    def action_dist(self, observations: np.ndarray):
+        return action_dist_jit(self._actor.apply_fn, self._actor.params,self._actor.batch_stats, observations)
+
     def eval_actions(self, observations: np.ndarray) -> np.ndarray:
         actions = eval_actions_jit(
                     self._actor.apply_fn, self._actor.params,self._actor.batch_stats,observations

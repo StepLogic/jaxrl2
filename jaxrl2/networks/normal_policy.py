@@ -2,6 +2,7 @@ from typing import Callable, Optional, Sequence
 
 import distrax
 import flax.linen as nn
+import jax
 import jax.numpy as jnp
 from flax.linen.initializers import constant
 from jaxrl2.networks import MLP
@@ -49,6 +50,7 @@ class VariableStdNormalPolicy(nn.Module):
     log_std_init: float = 0.0
     kernel_init: Optional[Callable] = None
     bias_init: Optional[Callable] = None
+    use_layer_norm: bool = False
 
     @nn.compact
     def __call__(
@@ -57,10 +59,11 @@ class VariableStdNormalPolicy(nn.Module):
         kernel_init= self.kernel_init or default_orthogonal_init
         bias_init = self.bias_init or default_bias_init
         outputs = PlainMLP(
-            self.hidden_dims, activate_final=False, dropout_rate=self.dropout_rate,kernel_init=kernel_init,bias_init=bias_init
+            self.hidden_dims, activate_final=False, dropout_rate=self.dropout_rate,kernel_init=kernel_init,bias_init=bias_init,use_layer_norm=self.use_layer_norm
         )(observations, training=training)
 
         action_logits = nn.Dense(self.action_dim,kernel_init=kernel_init(),bias_init=nn.initializers.constant(0.1))(outputs)
         # log_std = self.param("log_std", constant(self.log_std_init), (self.action_dim,))
         log_std=nn.Dense(self.action_dim,kernel_init=kernel_init(),bias_init=nn.initializers.constant(self.log_std_init))(outputs)
+        # jax.debug.print("log std {log_std}",log_std=log_std)
         return distrax.MultivariateNormalDiag(loc=action_logits, scale_diag=jnp.exp(log_std))

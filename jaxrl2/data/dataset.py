@@ -52,7 +52,7 @@ def _sample(
     dataset_dict: Union[np.ndarray, DatasetDict], indx: np.ndarray
 ) -> DatasetDict:
     if isinstance(dataset_dict, np.ndarray):
-        return np.array(dataset_dict)[indx]
+        return dataset_dict[indx]
     elif isinstance(dataset_dict, dict):
         batch = {}
         for k, v in dataset_dict.items():

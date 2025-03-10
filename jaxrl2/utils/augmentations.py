@@ -67,6 +67,8 @@ def batched_random_cutout(key, imgs, max_size=16):
     )
 
 
+
+
 # def adjust_brightness(image: jnp.Array, delta:float):
 #   return image + jnp.asarray(delta, image.dtype)
 
