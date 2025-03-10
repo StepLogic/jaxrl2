@@ -15,7 +15,6 @@ from flax.core.frozen_dict import FrozenDict
 from  flax.training import train_state
 import flax.linen as nn
 from jaxrl2.agents.agent import Agent
-from jaxrl2.agents.bc.actor_updater import log_prob_update
 from jaxrl2.utils.augmentations import batched_random_crop, batched_random_cutout
 from jaxrl2.data.dataset import DatasetDict
 from jaxrl2.networks.encoders import D4PGEncoder, ResNetV2Encoder,PlaceholderEncoder
@@ -36,6 +35,17 @@ class TrainState(train_state.TrainState):
 #     dist = actor_apply_fn({"params": actor_params}, observations)
 #     return dist
 
+@partial(jax.jit, static_argnames="actor_apply_fn")
+def sample_actions_jit(
+    rng: PRNGKey,
+    actor_apply_fn: Callable[..., distrax.Distribution],
+    actor_params: Params,
+     batch_stats:Any,
+    observations: np.ndarray,
+) -> Tuple[PRNGKey, jnp.ndarray]:
+    dist = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats}, observations)
+    rng, key = jax.random.split(rng)
+    return rng, dist.sample(seed=key)
 
 @partial(jax.jit, static_argnames="actor_apply_fn")
 def extract_feature(
@@ -138,7 +148,8 @@ class PixelResNetBCLearner(Agent):
             hidden_dims, action_dim, dropout_rate=dropout_rate ,use_layer_norm=True,activations=nn.relu
         )
         actor_def = PixelMultiplexer(
-            encoder=encoder_def, network=policy_def, latent_dim=latent_dim        )
+            encoder=encoder_def, network=policy_def, latent_dim=latent_dim)
+        
         params = actor_def.init(actor_key, observations)
         actor_params=params["params"]
         batch_stats=params["batch_stats"]
@@ -182,3 +193,5 @@ class PixelResNetBCLearner(Agent):
                     self._actor.apply_fn, self._actor.params,self._actor.batch_stats,observations
                 )
         return np.asarray(actions)
+    
+
