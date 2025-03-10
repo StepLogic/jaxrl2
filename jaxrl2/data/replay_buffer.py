@@ -1,6 +1,5 @@
 import collections
 import random
-from threading import Thread
 from typing import Optional, Union, Iterable, Callable
 
 import gymnasium as gym
@@ -169,8 +168,6 @@ class ReplayBuffer(Dataset):
             yield queue.popleft()
             enqueue(1)
     
-
-
     def get_sequential_iterator(self, queue_size: int = 2, sample_args: dict = None):
         if sample_args is None:
             sample_args = {}
@@ -180,72 +177,24 @@ class ReplayBuffer(Dataset):
         random.shuffle(all_indices)
 
         batch_size = sample_args.get("batch_size", 1)
+        m = 0
         queue = collections.deque()
-
-        def enqueue(n, m):
-            """Enqueue `n` batches starting from index `m`."""
+        def enqueue(n,m):
             for _ in range(n):
-                if m * batch_size >= len(all_indices):
-                    break  # Stop if we've exhausted all indices
                 start = m * batch_size
-                end = min((m + 1) * batch_size, len(all_indices))  # Use len(all_indices) instead of len(self)
+                end = min((m + 1) * batch_size, len(self))
                 batch_indices = all_indices[start:end]
                 # Sample data using the shuffled indices
                 data = self.sequential_sample(batch_size=batch_size, indx=np.array(batch_indices))
                 queue.append(jax.device_put(data))
                 m += 1
             return m
-
-        # Initial population of the queue
-        m = enqueue(queue_size, 0)
-        while queue:
-            # Yield the next batch from the queue
+        m = enqueue(queue_size,m)
+        while m * batch_size < len(all_indices):
+            # print(m*batch_size,batch_size)
             yield queue.popleft()
-            # Debugging print statement
-            # print(f"Processed batch up to index {m * batch_size} m {m} (batch size: {batch_size}, total samples: {len(all_indices)})")
-            # Refill the queue if there are more batches to process
-            if m * batch_size < len(all_indices):
-                m = enqueue(1, m)
+            m=enqueue(1,m)
 
-
-    # def get_sequential_iterator(self, queue_size: int = 4, sample_args: dict = None):
-    #     if sample_args is None:
-    #         sample_args = {}
-        
-    #     # Shuffle all indices once at the beginning
-    #     all_indices = np.arange(len(self))
-    #     np.random.shuffle(all_indices)
-
-    #     batch_size = sample_args.get("batch_size", 1)
-    #     num_batches = int(np.ceil(len(all_indices) / batch_size))
-    #     queue = collections.deque(maxlen=queue_size)
-
-    #     def enqueue(start_idx, end_idx):
-    #         """Enqueue batches from `start_idx` to `end_idx`."""
-    #         for m in range(start_idx, end_idx):
-    #             start = m * batch_size
-    #             end = min((m + 1) * batch_size, len(all_indices))
-    #             batch_indices = all_indices[start:end]
-    #             # Sample data using the shuffled indices
-    #             data = self.sequential_sample(batch_size=batch_size, indx=batch_indices)
-    #             queue.append(jax.device_put(data))
-
-    #     # Prefetch initial batches in a separate thread
-    #     def prefetch_thread():
-    #         enqueue(0, queue_size)
-
-    #     Thread(target=prefetch_thread, daemon=True).start()
-
-    #     for m in range(num_batches):
-    #         if not queue:
-    #             # Wait for the prefetch thread to fill the queue
-    #             while not queue:
-    #                 pass
-    #         yield queue.popleft()
-    #         print(f"Processed batch up to index {m * batch_size} m {m} queue={queue} (batch size: {batch_size}, total samples: {len(all_indices)})")
-    #         # Refill the queue in the background
-    #         if m + queue_size < num_batches:
-    #             Thread(target=enqueue, args=(m + queue_size, m + queue_size + 1), daemon=True).start()
 
     def sequential_sample(self,
                         batch_size: int,
