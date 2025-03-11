@@ -7,6 +7,7 @@ import jax
 import jax.numpy as jnp
 from jaxrl2.networks.encoders.pretrained_resnet import PretrainedResNet
 from jaxrl2.utils.misc import augment_batch
+import numpy as np
 import optax
 from flax.core.frozen_dict import FrozenDict
 from flax.training.train_state import TrainState
@@ -26,6 +27,50 @@ from flax.core.frozen_dict import FrozenDict,freeze,unfreeze
 class TrainState(train_state.TrainState):
   batch_stats: Any
 
+@partial(jax.jit, static_argnames="actor_apply_fn")
+def sample_actions_jit(
+    rng: PRNGKey,
+    actor_apply_fn: Callable[..., distrax.Distribution],
+    actor_params: Params,
+     batch_stats:Any,
+    observations: np.ndarray,
+) -> Tuple[PRNGKey, jnp.ndarray]:
+    dist = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats}, observations)
+    rng, key = jax.random.split(rng)
+    return rng, dist.sample(seed=key)
+@partial(jax.jit, static_argnames="actor_apply_fn")
+def extract_feature(
+    actor_apply_fn: Callable[..., distrax.Distribution],
+    actor_params: Params,
+    batch_stats:Any,
+    observations: np.ndarray,
+) -> jnp.ndarray:
+    (_,outputs) = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats}, observations,mutable='intermediates')
+    features = outputs['intermediates']['features']
+    return features
+
+@partial(jax.jit, static_argnames="actor_apply_fn")
+def action_dist_jit(
+    actor_apply_fn: Callable[..., distrax.Distribution],
+    actor_params: Params,
+    batch_stats:Any,
+    observations: np.ndarray,
+) -> jnp.ndarray:
+    dist = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats},observations)
+    return dist
+
+@partial(jax.jit, static_argnames="actor_apply_fn")
+def eval_actions_jit(
+    actor_apply_fn: Callable[..., distrax.Distribution],
+    actor_params: Params,
+    batch_stats:Any,
+    observations: np.ndarray,
+) -> jnp.ndarray:
+    dist = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats},observations)
+    return dist.mode()
+
+
+
 def _share_encoder(source, target):
     replacers = {}
     for k, v in source.params.items():
@@ -40,6 +85,8 @@ def _share_encoder(source, target):
         replacers[k] = v
     target=target.replace(batch_stats=new_batch_stats)
     return target
+
+
 
 def update_actor(
     key: PRNGKey,
@@ -253,8 +300,8 @@ class PixelResNetIQLLearner(Agent):
         #     encoder_def = partial(PlaceholderEncoder)
         encoder_def = partial(PretrainedResNet)
 
-        actor_def = PixelMultiplexer(
-            encoder=encoder_def, network=policy_def, latent_dim=latent_dim)
+        # actor_def = PixelMultiplexer(
+        #     encoder=encoder_def, network=policy_def, latent_dim=latent_dim)
         
         if decay_steps is not None:
             actor_lr = optax.cosine_decay_schedule(actor_lr, decay_steps)
@@ -319,6 +366,25 @@ class PixelResNetIQLLearner(Agent):
         self._critic = critic
         self._target_critic_params = target_critic_params
         self._value = value
+    
+    def sample_actions(self, observations: np.ndarray) -> np.ndarray:
+        rng, actions = sample_actions_jit(
+            self._rng, self._actor.apply_fn, self._actor.params,self._actor.batch_stats, observations
+        )
+        self._rng = rng
+        return np.asarray(actions)
+    def extract_features(self, batch:DatasetDict):
+        return np.asarray(extract_feature(self._actor.apply_fn, self._actor.params,self._actor.batch_stats,batch))
+
+    def action_dist(self, observations: np.ndarray):
+        return action_dist_jit(self._actor.apply_fn, self._actor.params,self._actor.batch_stats, observations)
+
+    def eval_actions(self, observations: np.ndarray) -> np.ndarray:
+        actions = eval_actions_jit(
+                    self._actor.apply_fn, self._actor.params,self._actor.batch_stats,observations
+                )
+        return np.asarray(actions)
+    
 
     def update(self, batch: FrozenDict) -> Dict[str, float]:
         (
