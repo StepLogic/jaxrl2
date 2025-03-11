@@ -2,7 +2,8 @@
 
 import copy
 import functools
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
+import distrax
 import jax
 import jax.numpy as jnp
 from jaxrl2.networks.encoders.pretrained_resnet import PretrainedResNet
