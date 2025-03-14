@@ -195,13 +195,13 @@ class PretrainedResNet(nn.Module):
                            param_dict=params,
                            block_name=f'block4_{i}',
                            dtype=self.dtype)(x, act, train)
-
-        # Classifier
+        # breakpoint()
         x = jnp.mean(x, axis=(1, 2))
-        x = nn.Dense(features=num_classes,
-                     kernel_init=self.kernel_init if param_dict is None else lambda *_ : jnp.array(param_dict['fc']['weight']), 
-                     bias_init=self.bias_init if param_dict is None else lambda *_ : jnp.array(param_dict['fc']['bias']),
-                     dtype=self.dtype)(x)
+        # Classifier
+        # x = nn.Dense(features=num_classes,
+        #              kernel_init=self.kernel_init if param_dict is None else lambda *_ : jnp.array(param_dict['fc']['weight']), 
+        #              bias_init=self.bias_init if param_dict is None else lambda *_ : jnp.array(param_dict['fc']['bias']),
+        #              dtype=self.dtype)(x)
         act['fc'] = x
         
         # if self.output == 'softmax':
@@ -211,8 +211,8 @@ class PretrainedResNet(nn.Module):
         # if self.output == 'activations':
             # return act
         x=jnp.squeeze(x)
-        if not train:
-            jax.lax.stop_gradient(x)
+        # if not train:
+        #     jax.lax.stop_gradient(x)
         return x
 
 # class PretrainedResNet(nn.Module):

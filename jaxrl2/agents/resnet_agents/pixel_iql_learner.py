@@ -7,6 +7,7 @@ import distrax
 import jax
 import jax.numpy as jnp
 from jaxrl2.networks.encoders.pretrained_resnet import PretrainedResNet
+from jaxrl2.networks.normal_tanh_policy import NormalTanhPolicy
 from jaxrl2.utils.misc import augment_batch
 import numpy as np
 import optax
@@ -306,8 +307,9 @@ class PixelResNetIQLLearner(Agent):
         
         if decay_steps is not None:
             actor_lr = optax.cosine_decay_schedule(actor_lr, decay_steps)
-        policy_def = UnitStdNormalPolicy(
-            hidden_dims, action_dim, dropout_rate=dropout_rate, apply_tanh=False
+        policy_def = NormalTanhPolicy(
+            hidden_dims, action_dim, dropout_rate=dropout_rate
+            # , apply_tanh=False
         )
         actor_def = PixelMultiplexer(
             encoder=encoder_def,
