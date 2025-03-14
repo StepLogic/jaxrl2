@@ -83,6 +83,7 @@ class PixelMultiplexer(nn.Module):
         observations: Union[jnp.ndarray, Dict, FrozenDict],
         actions: Optional[jnp.ndarray] = None,
         training: bool = False,
+        train_encoder:bool=True
     ) -> jnp.ndarray:
         
         # Handle both array and dict inputs
@@ -105,7 +106,7 @@ class PixelMultiplexer(nn.Module):
                     value
                 )
                 x = self.encoder(name=f"encoder_{key}")(value,train=training)
-                if self.stop_gradient:
+                if self.stop_gradient or not train_encoder:
                     x = jax.lax.stop_gradient(x)
 
                 self.sow('intermediates', 'features', x)

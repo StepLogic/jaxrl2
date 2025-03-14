@@ -62,6 +62,7 @@ class NormalTanhPolicy(nn.Module):
     log_std_max: Optional[float] = 2
     low: Optional[jnp.ndarray] = None
     high: Optional[jnp.ndarray] = None
+    use_layer_norm:bool=False
     activations: Callable[[jnp.ndarray], jnp.ndarray] = nn.relu
 
     @nn.compact
@@ -69,7 +70,7 @@ class NormalTanhPolicy(nn.Module):
         self, observations: jnp.ndarray, training: bool = False
     ) -> distrax.Distribution:
         outputs = MLP(
-            self.hidden_dims, activate_final=True,activations=self.activations, dropout_rate=self.dropout_rate
+            self.hidden_dims,use_layer_norm=self.use_layer_norm, activate_final=True,activations=self.activations, dropout_rate=self.dropout_rate
         )(observations, training=training)
 
         means = nn.Dense(self.action_dim, kernel_init=default_init())(outputs)

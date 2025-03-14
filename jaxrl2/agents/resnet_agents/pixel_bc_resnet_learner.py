@@ -8,14 +8,14 @@ import jax
 import jax.numpy as jnp
 from jaxrl2.networks.encoders.pretrained_resnet import PretrainedResNet
 from jaxrl2.networks.normal_tanh_policy import NormalTanhPolicy
-from jaxrl2.utils.misc import augment_batch
+from jaxrl2.utils.misc import augment_batch, augment_state_batch
 import numpy as np
 import optax
 from flax.core.frozen_dict import FrozenDict
 from  flax.training import train_state
 import flax.linen as nn
 from jaxrl2.agents.agent import Agent
-from jaxrl2.utils.augmentations import batched_random_crop, batched_random_cutout
+from jaxrl2.utils.augmentations import  augment_bc_random_shift_batch, batched_add_noise, batched_random_crop, batched_random_cutout
 from jaxrl2.data.dataset import DatasetDict
 from jaxrl2.networks.encoders import D4PGEncoder, ResNetV2Encoder,PlaceholderEncoder
 from jaxrl2.networks.normal_policy import UnitStdNormalPolicy, VariableStdNormalPolicy
@@ -78,15 +78,18 @@ def eval_actions_jit(
     dist = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats},observations)
     return dist.mode()
 
-@jax.jit
+@partial(jax.jit, static_argnames=("train_encoder"))
 def _update_jit(
-    rng: PRNGKey, actor: TrainState, batch: TrainState
+    rng: PRNGKey, actor: TrainState, batch: TrainState,train_encoder:bool=True,
 ) -> Tuple[PRNGKey, TrainState, TrainState, Params, TrainState, Dict[str, float]]:
     rng, key = jax.random.split(rng)
     # if augument:
     rng, batch = augment_batch(key, batch,batched_random_crop)
     rng, key = jax.random.split(rng)
-    # rng, batch = augment_batch(key, batch,batched_random_cutout)
+    # rng, batch = augumen_(key, batch,batched_random_cutout)
+    rng,batch=augment_state_batch(key,batch,batched_add_noise)
+    rng,batch=augment_bc_random_shift_batch(batch)
+    
     # rng, key = jax.random.split(rng)
 
     def loss_fn(actor_params: Params,batch_stats:Params) -> Tuple[jnp.ndarray, Dict[str, float]]:
@@ -94,15 +97,17 @@ def _update_jit(
             {"params": actor_params,"batch_stats":batch_stats},
             batch["observations"],
             training=True,
+            train_encoder=train_encoder,
             rngs={"dropout": key},
             mutable=['batch_stats']
         )
         log_probs = dist.log_prob(batch["actions"]) 
         
         # log_probs = log_probs.mean() 
-        clipped_log_probs=jnp.clip(log_probs,-2.9,0)
+        # clipped_log_probs=jnp.clip(log_probs,-2.9,0)
         # actor_loss = jnp.mean(jnp.square(dist.mean() - batch["actions"]))
-        actor_loss = -clipped_log_probs.mean() + jnp.mean(jnp.square(dist.mean() - batch["actions"]))
+        actor_loss = -log_probs.mean() 
+        # + jnp.mean(jnp.square(dist.mean() - batch["actions"]))
         # + 0.1*jnp.mean(jnp.square(dist.mode()-batch["actions"]))
         return actor_loss,({"bc_loss": actor_loss},updates)
 
@@ -111,6 +116,40 @@ def _update_jit(
     new_actor = new_actor.replace(batch_stats=updates['batch_stats'])
     return rng, new_actor, info
 
+@partial(jax.jit, static_argnames=("train_encoder"))
+def _eval_jit(
+    rng: PRNGKey, actor: TrainState, batch: TrainState,train_encoder:bool=True,
+) -> Tuple[PRNGKey, TrainState, TrainState, Params, TrainState, Dict[str, float]]:
+    rng, key = jax.random.split(rng)
+    # if augument:
+    # rng, batch = augment_batch(key, batch,batched_random_crop)
+    # rng, key = jax.random.split(rng)
+    # rng, batch = augment_batch(key, batch,batched_random_cutout)
+    # rng, key = jax.random.split(rng)
+
+    def loss_fn(actor_params: Params,batch_stats:Params) -> Tuple[jnp.ndarray, Dict[str, float]]:
+        dist,updates = actor.apply_fn(
+            {"params": actor_params,"batch_stats":batch_stats},
+            batch["observations"],
+            training=False,
+            train_encoder=train_encoder,
+            rngs={"dropout": key},
+            mutable=['batch_stats']
+        )
+        log_probs = dist.log_prob(batch["actions"]) 
+        
+        # log_probs = log_probs.mean() 
+        # clipped_log_probs=jnp.clip(log_probs,-2.9,0)
+        # actor_loss = jnp.mean(jnp.square(dist.mean() - batch["actions"]))
+        actor_loss = log_probs.mean() 
+        # + jnp.mean(jnp.square(dist.mean() - batch["actions"]))
+        # + 0.1*jnp.mean(jnp.square(dist.mode()-batch["actions"]))
+        return actor_loss,({"bc_loss": actor_loss},updates)
+
+    loss,(info,_)=loss_fn(actor.params,actor.batch_stats)
+    # new_actor = actor.apply_gradients(grads=grads)
+    # new_actor = new_actor.replace(batch_stats=updates['batch_stats'])
+    return rng,info 
 
 
 class PixelResNetBCLearner(Agent):
@@ -144,7 +183,7 @@ class PixelResNetBCLearner(Agent):
 
         if decay_steps is not None:
             actor_lr = optax.cosine_decay_schedule(actor_lr, decay_steps)
-        policy_def = VariableStdNormalPolicy(
+        policy_def = NormalTanhPolicy(
             hidden_dims, action_dim, dropout_rate=dropout_rate ,use_layer_norm=True,activations=nn.relu
         )
         actor_def = PixelMultiplexer(
@@ -163,6 +202,14 @@ class PixelResNetBCLearner(Agent):
         #     decay_steps=total_steps - warmup_steps,
         #     end_value=actor_lr * 0.1  # Final learning rate will be 10% of peak
         # )
+  
+        # Create TrainState with the scheduler
+        actor = TrainState.create(
+            apply_fn=actor_def.apply,
+            params=actor_params,
+            batch_stats=batch_stats,
+            tx=optax.adam(learning_rate=actor_lr),
+        )
 
         # Create TrainState with the scheduler
         actor = TrainState.create(
@@ -174,12 +221,17 @@ class PixelResNetBCLearner(Agent):
         self._rng = rng
         self._actor = actor
 
-    def update(self, batch: FrozenDict) -> Dict[str, float]:
-        new_rng, new_actor, info = _update_jit(self._rng, self._actor, batch)
+    def update(self, batch: FrozenDict,train_encoder:bool=True) -> Dict[str, float]:
+        new_rng, new_actor, info = _update_jit(self._rng, self._actor, batch,train_encoder=train_encoder)
 
         self._rng = new_rng
         self._actor = new_actor
 
+        return info
+    
+    def eval(self, batch: FrozenDict,train_encoder:bool=True) -> Dict[str, float]:
+        rng,info =_eval_jit(self._rng, self._actor, batch,train_encoder=train_encoder)
+        self._rng = rng
         return info
     
     def extract_features(self, batch:DatasetDict):

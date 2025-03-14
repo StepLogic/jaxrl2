@@ -47,7 +47,7 @@ class VariableStdNormalPolicy(nn.Module):
     log_std_max: Optional[float] = 2
     low: Optional[jnp.ndarray] = None
     high: Optional[jnp.ndarray] = None
-    log_std_init: float = 0.0
+    log_std_init: float = 1.0
     kernel_init: Optional[Callable] = None
     bias_init: Optional[Callable] = None
     use_layer_norm: bool = False
@@ -63,7 +63,8 @@ class VariableStdNormalPolicy(nn.Module):
         )(observations, training=training)
 
         action_logits = nn.Dense(self.action_dim,kernel_init=kernel_init(),bias_init=nn.initializers.constant(0.1))(outputs)
-        # log_std = self.param("log_std", constant(self.log_std_init), (self.action_dim,))
-        log_std=nn.Dense(self.action_dim,kernel_init=kernel_init(),bias_init=nn.initializers.constant(self.log_std_init))(outputs)
+        # log_stds = self.param("log_std", constant(self.log_std_init), (self.action_dim,))
+        log_stds=nn.Dense(self.action_dim,kernel_init=kernel_init(),bias_init=nn.initializers.constant(self.log_std_init))(outputs)
+        log_stds = jnp.clip(log_stds, self.log_std_min, self.log_std_max)
         # jax.debug.print("log std {log_std}",log_std=log_std)
-        return distrax.MultivariateNormalDiag(loc=action_logits, scale_diag=jnp.exp(log_std))
+        return distrax.MultivariateNormalDiag(loc=action_logits, scale_diag=jnp.exp(log_stds))

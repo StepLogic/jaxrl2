@@ -5,7 +5,7 @@ import flax.linen as nn
 import jax
 import jax.numpy as jnp
 from flax.core.frozen_dict import FrozenDict
-
+# import dm
 from jaxrl2.networks.constants import default_init
 import numpy as np
 
@@ -23,7 +23,35 @@ def process_observation(observation: Union[jnp.ndarray, Dict, FrozenDict]) -> Di
     else:
         # If single array passed, treat as primary observation
         return {'obs': observation}
+
+
+
+# def augment_observations(
+#     rng: jnp.ndarray,
+#     observations: Union[np.ndarray, jnp.ndarray, Dict],
+#     aug_func: None
+# ) -> Tuple[jnp.ndarray, Union[jnp.ndarray, Dict]]:
+
+#     # Handle direct array input
+#     if isinstance(observations, (np.ndarray, jnp.ndarray)):
+#         if is_image_space(observations):
+#             rng, split_rng = jax.random.split(rng)
+#             return rng, aug_func(split_rng, observations)
+#         return rng, observations
+#     # Process dictionary observations
+#     new_observations = observations.copy()
+
+#     # Iterate through observations and augment image-like ones
+#     for key, value in observations.items():
+#         if is_image_space(value):
+#             rng, split_rng = jax.random.split(rng)
+#             aug_value = aug_func(split_rng, value)
+#             new_observations = new_observations.copy(add_or_replace={key: aug_value})
     
+#     return rng, new_observations
+
+
+
 def augment_observations(
     rng: jnp.ndarray,
     observations: Union[np.ndarray, jnp.ndarray, Dict],
@@ -47,8 +75,55 @@ def augment_observations(
             rng, split_rng = jax.random.split(rng)
             aug_value = aug_func(split_rng, value)
             new_observations = new_observations.copy(add_or_replace={key: aug_value})
-    
     return rng, new_observations
+
+
+def augment_state(
+    rng: jnp.ndarray,
+    observations: Union[np.ndarray, jnp.ndarray, Dict],
+    aug_func: None
+) -> Tuple[jnp.ndarray, Union[jnp.ndarray, Dict]]:
+
+    # Handle direct array input
+    if isinstance(observations, (np.ndarray, jnp.ndarray)):
+        if not is_image_space(observations):
+            rng, split_rng = jax.random.split(rng)
+            
+            return rng, aug_func(split_rng, observations)
+        return rng, observations
+    
+    # Process dictionary observations
+    new_observations = observations.copy()
+
+    # Iterate through observations and augment image-like ones
+    for key, value in observations.items():
+        if  not is_image_space(value):
+            rng, split_rng = jax.random.split(rng)
+            aug_value = aug_func(split_rng, value)
+            new_observations = new_observations.copy(add_or_replace={key: aug_value})
+    return rng, new_observations
+
+
+def augment_state_batch(
+    rng: jnp.ndarray,
+    batch: Dict,
+    aug_func: None,
+) -> Tuple[jnp.ndarray, Dict]:
+    # Get observations and next_observations
+    observations = batch["observations"]
+    if "next_observations" in batch.keys():
+        next_observations = batch["next_observations"]
+
+    
+    # Handle observations
+    rng, aug_observations = augment_state(rng, observations, aug_func)
+    new_batch = batch.copy(add_or_replace={"observations": aug_observations})
+    
+    # Handle next_observations
+    # if "next_observations" in batch.keys():
+    #     rng, aug_next_observations = augment_state(rng, next_observations, aug_func)
+    #     new_batch = new_batch.copy(add_or_replace={"next_observations": aug_next_observations})
+    return rng, new_batch
 
 
 
