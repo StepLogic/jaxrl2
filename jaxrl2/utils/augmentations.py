@@ -88,7 +88,7 @@ def horizontal_flip_augmentation(key, observations, actions, flip_probability=0.
     flip_mask = jax.random.uniform(flip_key, shape=(batch_size,)) < flip_probability
 
     # Expand dimensions for broadcasting with observations
-    flip_mask_expanded = flip_mask[:, None, None, None]
+    flip_mask_expanded = flip_mask[:, None, None, None,None]
 
     # Flip observations horizontally (along width dimension)
     flipped_observations = jnp.flip(observations, axis=2)
@@ -104,13 +104,13 @@ def horizontal_flip_augmentation(key, observations, actions, flip_probability=0.
 
     return augmented_observations, augmented_actions
 
-def bc_augment_random_shift(key, observations, actions):
+def bc_augment_random_shift(rng, observations, actions):
     
     # Apply horizontal flipping augmentation
-    flip_key, noise_key = jax.random.split(key)
-    observations, actions = horizontal_flip_augmentation(
-        flip_key, observations, actions, flip_probability=0.5
-    )
+    # flip_key, rng = jax.random.split(key)
+    # observations, actions = horizontal_flip_augmentation(
+    #     flip_key, observations, actions, flip_probability=0.5
+    # )
 
     # Add noise to observations for better generalization
     # noise = jax.random.normal(noise_key, shape=observations.shape) * 0.01
@@ -120,7 +120,7 @@ def bc_augment_random_shift(key, observations, actions):
         if is_image_space(observations):
             rng, split_rng = jax.random.split(rng)
             return rng, horizontal_flip_augmentation(
-        flip_key, observations, actions, flip_probability=0.5
+        split_rng, observations, actions, flip_probability=0.5
     )
         return rng, observations,actions
     
@@ -132,7 +132,7 @@ def bc_augment_random_shift(key, observations, actions):
         if  is_image_space(value):
             rng, split_rng = jax.random.split(rng)
             aug_value,actions = horizontal_flip_augmentation(
-                    flip_key, observations, actions, flip_probability=0.5
+                    split_rng, value, actions, flip_probability=0.5
                 )
             new_observations = new_observations.copy(add_or_replace={key: aug_value})
     return rng, new_observations,actions

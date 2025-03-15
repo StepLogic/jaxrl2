@@ -202,7 +202,7 @@ class PretrainedResNet(nn.Module):
         #              kernel_init=self.kernel_init if param_dict is None else lambda *_ : jnp.array(param_dict['fc']['weight']), 
         #              bias_init=self.bias_init if param_dict is None else lambda *_ : jnp.array(param_dict['fc']['bias']),
         #              dtype=self.dtype)(x)
-        act['fc'] = x
+        # act['fc'] = x
         
         # if self.output == 'softmax':
         #     return nn.softmax(x)

@@ -15,7 +15,7 @@ from flax.core.frozen_dict import FrozenDict
 from  flax.training import train_state
 import flax.linen as nn
 from jaxrl2.agents.agent import Agent
-from jaxrl2.utils.augmentations import  augment_bc_random_shift_batch, batched_add_noise, batched_random_crop, batched_random_cutout
+from jaxrl2.utils.augmentations import  augment_bc_random_shift_batch, batch_bc_augmentation, batched_add_noise, batched_random_crop, batched_random_cutout
 from jaxrl2.data.dataset import DatasetDict
 from jaxrl2.networks.encoders import D4PGEncoder, ResNetV2Encoder,PlaceholderEncoder
 from jaxrl2.networks.normal_policy import UnitStdNormalPolicy, VariableStdNormalPolicy
@@ -88,7 +88,9 @@ def _update_jit(
     rng, key = jax.random.split(rng)
     # rng, batch = augumen_(key, batch,batched_random_cutout)
     rng,batch=augment_state_batch(key,batch,batched_add_noise)
-    rng,batch=augment_bc_random_shift_batch(batch)
+    rng,batch=augment_batch(key,batch,batch_bc_augmentation)
+
+    rng,batch=augment_bc_random_shift_batch(rng,batch)
     
     # rng, key = jax.random.split(rng)
 
@@ -105,10 +107,16 @@ def _update_jit(
         
         # log_probs = log_probs.mean() 
         # clipped_log_probs=jnp.clip(log_probs,-2.9,0)
-        # actor_loss = jnp.mean(jnp.square(dist.mean() - batch["actions"]))
-        actor_loss = -log_probs.mean() 
+        # actor_loss = jnp.mean(jnp.square(dist.mode() - batch["actions"]))
+        # actor_loss = -log_probs.mean() 
+        # actor_loss = jnp.mean(jnp.square(dist.mode() - batch["actions"]) / ( 2*jnp.square(dist.stddev()) )) + log_probs.mean()
         # + jnp.mean(jnp.square(dist.mean() - batch["actions"]))
         # + 0.1*jnp.mean(jnp.square(dist.mode()-batch["actions"]))
+        # standard_deviation=jnp.mean(dist.stddev(),axis=0)
+        # + jnp.mean(jnp.square(dist.mean() - batch["actions"]))
+        # + 0.1*jnp.mean(jnp.square(dist.mode()-batch["actions"]))
+        # entropy = dist.entropy().mean()
+        actor_loss = -log_probs.mean()  
         return actor_loss,({"bc_loss": actor_loss},updates)
 
     grads, (info,updates) = jax.grad(loss_fn, has_aux=True)(actor.params,actor.batch_stats)
@@ -142,6 +150,7 @@ def _eval_jit(
         # clipped_log_probs=jnp.clip(log_probs,-2.9,0)
         # actor_loss = jnp.mean(jnp.square(dist.mean() - batch["actions"]))
         actor_loss = log_probs.mean() 
+        # standard_deviation=jnp.mean(dist.stddev(),axis=0)
         # + jnp.mean(jnp.square(dist.mean() - batch["actions"]))
         # + 0.1*jnp.mean(jnp.square(dist.mode()-batch["actions"]))
         return actor_loss,({"bc_loss": actor_loss},updates)
@@ -183,7 +192,7 @@ class PixelResNetBCLearner(Agent):
 
         if decay_steps is not None:
             actor_lr = optax.cosine_decay_schedule(actor_lr, decay_steps)
-        policy_def = NormalTanhPolicy(
+        policy_def = VariableStdNormalPolicy(
             hidden_dims, action_dim, dropout_rate=dropout_rate ,use_layer_norm=True,activations=nn.relu
         )
         actor_def = PixelMultiplexer(

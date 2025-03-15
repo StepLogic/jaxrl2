@@ -78,7 +78,7 @@ class NormalTanhPolicy(nn.Module):
         log_stds = nn.Dense(self.action_dim, kernel_init=default_init())(outputs)
 
         log_stds = jnp.clip(log_stds, self.log_std_min, self.log_std_max)
-        
+
         return TanhMultivariateNormalDiag(
             loc=means, scale_diag=jnp.exp(log_stds), low=self.low, high=self.high
         )
