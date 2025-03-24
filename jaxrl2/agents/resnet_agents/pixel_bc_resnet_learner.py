@@ -87,10 +87,10 @@ def _update_jit(
     rng, batch = augment_batch(key, batch,batched_random_crop)
     rng, key = jax.random.split(rng)
     # rng, batch = augumen_(key, batch,batched_random_cutout)
-    rng,batch=augment_state_batch(key,batch,batched_add_noise)
-    rng,batch=augment_batch(key,batch,batch_bc_augmentation)
+    # rng,batch=augment_state_batch(key,batch,batched_add_noise)
+    # rng,batch=augment_batch(key,batch,batch_bc_augmentation)
 
-    rng,batch=augment_bc_random_shift_batch(rng,batch)
+    # rng,batch=augment_bc_random_shift_batch(rng,batch)
     
     # rng, key = jax.random.split(rng)
 
@@ -116,7 +116,8 @@ def _update_jit(
         # + jnp.mean(jnp.square(dist.mean() - batch["actions"]))
         # + 0.1*jnp.mean(jnp.square(dist.mode()-batch["actions"]))
         # entropy = dist.entropy().mean()
-        actor_loss = -log_probs.mean()  
+        # actor_loss = jnp.mean(jnp.square(dist.mode()-batch["actions"])) - entropy
+        actor_loss=-log_probs.mean()
         return actor_loss,({"bc_loss": actor_loss},updates)
 
     grads, (info,updates) = jax.grad(loss_fn, has_aux=True)(actor.params,actor.batch_stats)
@@ -193,7 +194,7 @@ class PixelResNetBCLearner(Agent):
         if decay_steps is not None:
             actor_lr = optax.cosine_decay_schedule(actor_lr, decay_steps)
         policy_def = VariableStdNormalPolicy(
-            hidden_dims, action_dim, dropout_rate=dropout_rate ,use_layer_norm=True,activations=nn.relu
+            hidden_dims, action_dim, dropout_rate=dropout_rate ,use_layer_norm=False,activations=nn.relu
         )
         actor_def = PixelMultiplexer(
             encoder=encoder_def, network=policy_def, latent_dim=latent_dim)

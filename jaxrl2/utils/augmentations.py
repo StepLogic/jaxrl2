@@ -69,7 +69,6 @@ def batched_random_cutout(key, imgs, max_size=16):
 
 
 def process_image(key, img):
-
     keys = jax.random.split(key, 3)
     img = dm_pix.random_brightness(keys[0], img, max_delta=0.2)
     img = dm_pix.random_contrast(keys[1], img, lower=0.9, upper=1.1)
