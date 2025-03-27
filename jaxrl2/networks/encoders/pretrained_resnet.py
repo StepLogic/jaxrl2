@@ -121,6 +121,7 @@ class PretrainedResNet(nn.Module):
         # jax.lax.stop_gradient(observations)
         param_dict=self.param_dict
         if self.normalize:
+            # x=x/255
             mean = jnp.array([0.485, 0.456, 0.406]).reshape(1, 1, 1, -1).astype(x.dtype)
             std = jnp.array([0.229, 0.224, 0.225]).reshape(1, 1, 1, -1).astype(x.dtype)
             x = (x - mean) / std
