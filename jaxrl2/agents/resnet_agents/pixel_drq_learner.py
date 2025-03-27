@@ -207,8 +207,8 @@ def _update_jit(
     # batch = batch.copy(add_or_replace={"next_observations": next_observations})
     if augument:
         rng, batch = augment_batch(key, batch,batched_random_crop)
-        rng, key = jax.random.split(rng)
-        rng, batch = augment_batch(key, batch,batched_random_cutout)
+        # rng, key = jax.random.split(rng)
+        # rng, batch = augment_batch(key, batch,batched_random_cutout)
         
     target_critic = critic.replace(params=target_critic_params)
   
