@@ -175,6 +175,50 @@ def update_actor(
     return new_actor, info
 
 
+
+@functools.partial(jax.jit, static_argnames=("backup_entropy", "critic_reduction"))
+def _update_critic_jit(
+    rng: PRNGKey,
+    actor: TrainState,
+    critic: TrainState,
+    target_critic_params: Params,
+    temp: TrainState,
+    batch: FrozenDict,
+    discount: float,
+    tau: float,
+    backup_entropy: bool,
+    critic_reduction: str,
+    augument:bool=True
+) -> Tuple[PRNGKey, TrainState, TrainState, Params, TrainState, Dict[str, float]]:
+    rng, key = jax.random.split(rng)
+    if augument:
+        rng, batch = augment_batch(key, batch,batched_random_crop)
+    
+    target_critic = critic.replace(params=target_critic_params)
+  
+    new_critic, critic_info = update_critic(
+                    key,
+                    actor,
+                    critic,
+                    target_critic,
+                    temp,
+                    batch,
+                    discount,
+                    backup_entropy=backup_entropy,
+                    critic_reduction=critic_reduction,
+                )
+    
+    new_target_critic_params = soft_target_update(
+        new_critic.params, target_critic_params, tau
+    )
+    return (
+        rng,
+        new_critic,
+        new_target_critic_params,
+        {**critic_info},
+    )
+
+
 @functools.partial(jax.jit, static_argnames=("backup_entropy", "critic_reduction","utd_ratio","enable_update_temperature","augument"))
 def _update_jit(
     rng: PRNGKey,
@@ -223,6 +267,7 @@ def _update_jit(
                     backup_entropy=backup_entropy,
                     critic_reduction=critic_reduction,
                 )
+    
     new_target_critic_params = soft_target_update(
         new_critic.params, target_critic_params, tau
     )
@@ -411,4 +456,49 @@ class PixelResNetDrQLearner(Agent):
         self._target_critic_params = new_target_critic_params
         if not new_temp is None:
             self._temp = new_temp
+        return info
+    
+
+    def update_expert(self, batch: FrozenDict) -> Dict[str, float]:
+        (
+            new_rng,
+            new_actor,
+            new_critic,
+            new_target_critic_params,
+            new_temp,
+            info,
+        ) = _update_critic_jit(
+            self._rng,
+            # self._actor,
+            self._critic,
+            self._target_critic_params,
+            self._temp,
+            batch,
+            self.discount,
+            self.tau,
+            # self.target_entropy,
+            self.backup_entropy,
+            self.critic_reduction,
+            # utd_ratio=utd_ratio,
+            # enable_update_temperature=enable_update_temperature,
+            augument=self.augument
+        )
+        # rng: PRNGKey,
+        # actor: TrainState,
+        # critic: TrainState,
+        # target_critic_params: Params,
+        # temp: TrainState,
+        # batch: FrozenDict,
+        # discount: float,
+        # tau: float,
+        # backup_entropy: bool,
+        # critic_reduction: str,
+        # augument:bool=True
+
+        self._rng = new_rng
+        # self._actor = new_actor
+        self._critic = new_critic
+        self._target_critic_params = new_target_critic_params
+        # if not new_temp is None:
+        #     self._temp = new_temp
         return info
