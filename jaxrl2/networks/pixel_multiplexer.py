@@ -83,7 +83,7 @@ class PixelMultiplexer(nn.Module):
         observations: Union[jnp.ndarray, Dict, FrozenDict],
         actions: Optional[jnp.ndarray] = None,
         training: bool = False,
-        train_encoder:bool=True
+        # train_encoder:bool=True
     ) -> jnp.ndarray:
         
         # Handle both array and dict inputs
@@ -105,18 +105,21 @@ class PixelMultiplexer(nn.Module):
                 #     lambda x: x.astype(jnp.float32), # false_fn: keep as is
                 #     value
                 # )
-                x = self.encoder(name=f"encoder_{key}")(value,train=training)
-                if self.stop_gradient or not train_encoder:
-                    x = jax.lax.stop_gradient(x)
 
+                x = self.encoder(name=f"encoder_{key}")(value,train=training)
+                # breakpoint()
                 self.sow('intermediates', 'features', x)
-                x = nn.Dense(self.latent_dim, kernel_init=kernel_init(),bias_init=bias_init())(x)
+                x = nn.Dense(self.latent_dim, kernel_init=kernel_init(),bias_init=bias_init(),name=f"encoder_pre_latent")(x)
+                x = nn.LayerNorm(name="encoder_layer_norm_enc")(x)
             else:
                 # Handle continuous observations
                 # jax.debug.print("value {value}",value=value)
-                x = nn.Dense(self.latent_dim, kernel_init=kernel_init())(value)
-            x = nn.LayerNorm()(x)
+                x = nn.Dense(self.latent_dim, kernel_init=kernel_init(),name=f"encoder_state")(value)
+                x = nn.LayerNorm(name="encoder_layer_norm_state")(x)
             x = nn.tanh(x)
+            if self.stop_gradient:
+                x = jax.lax.stop_gradient(x)
+
             processed_features.append(x)
  
         # Combine all processed features

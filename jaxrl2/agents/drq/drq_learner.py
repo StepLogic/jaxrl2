@@ -61,7 +61,7 @@ def _share_encoder(source, target):
     return target.replace(params=new_params)
 
 
-@functools.partial(jax.jit, static_argnames=("backup_entropy", "critic_reduction","utd_ratio","enable_update_temperature","augument"))
+@functools.partial(jax.jit, static_argnames=("backup_entropy", "critic_reduction","utd_ratio","enable_update_temperature","augument","target_entropy"))
 def _update_jit(
     rng: PRNGKey,
     actor: TrainState,
@@ -93,8 +93,8 @@ def _update_jit(
     # batch = batch.copy(add_or_replace={"next_observations": next_observations})
     if augument:
         rng, batch = augment_batch(key, batch,batched_random_crop)
-        rng, key = jax.random.split(rng)
-        rng, batch = augment_batch(key, batch,batched_random_cutout)
+        # rng, key = jax.random.split(rng)
+        # rng, batch = augment_batch(key, batch,batched_random_cutout)
         
     target_critic = critic.replace(params=target_critic_params)
     if not utd_ratio is None:
@@ -136,7 +136,7 @@ def _update_jit(
     new_actor, actor_info = update_actor(key, actor, critic, temp, batch)
     new_temp=None
     alpha_info={}
-    # print(enable_update_temperature)
+    # print(target_entropy)
     if enable_update_temperature:
         new_temp, alpha_info = update_temperature(
             temp, actor_info["entropy"], target_entropy
@@ -173,6 +173,7 @@ class DrQLearner(Agent):
         critic_reduction: str = "min",
         init_temperature: float = 1.0,
         encoder: str = "d4pg",
+        dropout_rate=0.2,
         num_qs=2
     ):
         """
@@ -182,16 +183,18 @@ class DrQLearner(Agent):
         action_dim = actions.shape[-1]
         # https://github.com/DLR-RM/stable-baselines3/blob/master/stable_baselines3/sac/sac.py
         if target_entropy is None:
-            self.target_entropy=-action_dim/2 
+            self.target_entropy=-action_dim
         else:
             self.target_entropy = target_entropy
-
+        # print("target_entropy",self.target_entropy)
         self.backup_entropy = backup_entropy
         self.critic_reduction = critic_reduction
 
         self.tau = tau
         self.discount = discount
 
+
+        # self.dropout_rate=dropout_rate
         rng = jax.random.PRNGKey(seed)
         rng, actor_key, critic_key, temp_key = jax.random.split(rng, 4)
 

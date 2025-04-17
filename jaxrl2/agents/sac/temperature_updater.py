@@ -14,5 +14,4 @@ def update_temperature(
 
     grads, info = jax.grad(temperature_loss_fn, has_aux=True)(temp.params)
     new_temp = temp.apply_gradients(grads=grads)
-
     return new_temp, info

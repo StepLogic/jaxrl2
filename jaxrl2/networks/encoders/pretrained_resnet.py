@@ -101,7 +101,7 @@ class PretrainedResNet(nn.Module):
             self.param_dict = h5py.File(ckpt_file, 'r')
     
     @nn.compact
-    def __call__(self, x, train=False):
+    def __call__(self, x,train=True):
         """
         Args:
             x (tensor): Input tensor of shape [N, H, W, 3]. Images must be in range [0, 1].
@@ -114,6 +114,7 @@ class PretrainedResNet(nn.Module):
             If output == 'activations':
                 (dict): Dictionary of activations.
         """
+        # train=False
         x=batch_process_image_resnet18(x)
         # observations = self.encoder(key, observations)
         # observations = encoder.apply(params, observations, train=True)
@@ -176,7 +177,7 @@ class PretrainedResNet(nn.Module):
                            param_dict=params,
                            block_name=f'block2_{i}',
                            dtype=self.dtype)(x, act, train)
-        
+        # jax.lax.stop_gradient(x)
         # Layer 3
         for i in range(LAYERS[self.architecture][2]):
             params = None if param_dict is None else param_dict['layer3'][f'block{i}']
@@ -186,7 +187,8 @@ class PretrainedResNet(nn.Module):
                            param_dict=params,
                            block_name=f'block3_{i}',
                            dtype=self.dtype)(x, act, train)
-
+        # if not train:
+        # x = jax.lax.stop_gradient(x)
         # Layer 4
         for i in range(LAYERS[self.architecture][3]):
             params = None if param_dict is None else param_dict['layer4'][f'block{i}']
@@ -212,8 +214,7 @@ class PretrainedResNet(nn.Module):
         # if self.output == 'activations':
             # return act
         x=jnp.squeeze(x)
-        # if not train:
-        #     jax.lax.stop_gradient(x)
+        # x = jax.lax.stop_gradient(x)
         return x
 
 # class PretrainedResNet(nn.Module):

@@ -120,6 +120,7 @@ class ReplayBuffer(Dataset):
             capacity: int,
             next_observation_space: Optional[gym.Space] = None,
             relabel_fn: Optional[Callable[[DatasetDict], DatasetDict]] = None,
+            slack:int=int(3e4)
     ):
         if next_observation_space is None:
             next_observation_space = observation_space
@@ -139,7 +140,9 @@ class ReplayBuffer(Dataset):
 
         self._size = 0
         self._capacity = capacity
-        self._insert_index = 0
+        self._insert_index = self._size
+        self._start_size=None
+        self._slack=slack
 
         self._relabel_fn = relabel_fn
 
@@ -148,10 +151,11 @@ class ReplayBuffer(Dataset):
 
     def insert(self, data_dict: DatasetDict):
         _insert_recursively(self.dataset_dict, data_dict, self._insert_index)
-
-        self._insert_index = (self._insert_index + 1) % self._capacity
+        if self._start_size==None:
+            self._insert_index = (self._insert_index + 1) % self._capacity
+        else:
+            self._insert_index = np.clip((self._insert_index+1)% self._capacity,self._start_size,self._capacity)
         self._size = min(self._size + 1, self._capacity)
-
     def get_iterator(self, queue_size: int = 2, sample_args: dict = {}):
         # See https://flax.readthedocs.io/en/latest/_modules/flax/jax_utils.html#prefetch_to_device
         # queue_size = 2 should be ok for one GPU.
@@ -167,6 +171,21 @@ class ReplayBuffer(Dataset):
         while queue:
             yield queue.popleft()
             enqueue(1)
+    # def get_expert_iterator(self, queue_size: int = 2, sample_args: dict = {}):
+    #     # See https://flax.readthedocs.io/en/latest/_modules/flax/jax_utils.html#prefetch_to_device
+    #     # queue_size = 2 should be ok for one GPU.
+
+    #     queue = collections.deque()
+    #     indx = self.np_random.randint(len(self), size=sample_args.get("batch_size", 1))
+    #     def enqueue(n):
+    #         for _ in range(n):
+    #             data = self.sample(**sample_args)
+    #             queue.append(jax.device_put(data))
+
+    #     enqueue(queue_size)
+    #     while queue:
+    #         yield queue.popleft()
+    #         enqueue(1)
     
     def get_sequential_iterator(self, queue_size: int = 2, sample_args: dict = None):
         if sample_args is None:
@@ -194,6 +213,13 @@ class ReplayBuffer(Dataset):
             # print(m*batch_size,batch_size)
             yield queue.popleft()
             m=enqueue(1,m)
+
+    def freeze(self):
+        # if self._start_size==None:
+        if self._size==self._capacity:
+            self._start_size=self._size-int(1e5)
+        else:
+            self._start_size=self._size
 
 
     def sequential_sample(self,

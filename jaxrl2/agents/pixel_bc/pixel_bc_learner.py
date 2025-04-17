@@ -30,7 +30,6 @@ def _update_jit(
     rng, batch = augment_batch(key, batch,batched_random_crop)
     # rng, key = jax.random.split(rng)
     # rng, batch = augment_batch(key, batch,batched_random_cutout)
-
     rng, new_actor, actor_info = log_prob_update(rng, actor, batch)
 
     return rng, new_actor, actor_info
@@ -72,17 +71,12 @@ class PixelBCLearner(Agent):
             )
         elif encoder == "resnet":
             encoder_def = partial(ResNetV2Encoder, stage_sizes=(2, 2, 2, 2))
-        elif encoder == "pretrained-resnet":
-            encoder_def = partial(PretrainedResNet)
-            # rng, encoder_key = jax.random.split(rng)
-            # resnet18 = fm.ResNet18(output='logits', pretrained='imagenet')
-            # encoder_def = partial(resnet18)
         else:
             encoder_def = partial(PlaceholderEncoder)
 
         if decay_steps is not None:
             actor_lr = optax.cosine_decay_schedule(actor_lr, decay_steps)
-        policy_def = VariableStdNormalPolicy(
+        policy_def = NormalTanhPolicy(
             hidden_dims, action_dim, dropout_rate=dropout_rate
         )
         actor_def = PixelMultiplexer(

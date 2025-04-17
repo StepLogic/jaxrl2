@@ -47,7 +47,10 @@ def sample_actions_jit(
      batch_stats:Any,
     observations: np.ndarray,
 ) -> Tuple[PRNGKey, jnp.ndarray]:
-    dist = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats}, observations)
+    try:
+     dist = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats}, observations,training=False)
+    except:
+        breakpoint()
     rng, key = jax.random.split(rng)
     return rng, dist.sample(seed=key)
 @partial(jax.jit, static_argnames="actor_apply_fn")
@@ -57,7 +60,7 @@ def extract_feature(
     batch_stats:Any,
     observations: np.ndarray,
 ) -> jnp.ndarray:
-    (_,outputs) = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats}, observations,mutable='intermediates')
+    (_,outputs) = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats}, observations,training=False,mutable='intermediates')
     features = outputs['intermediates']['features']
     return features
 
@@ -68,7 +71,7 @@ def action_dist_jit(
     batch_stats:Any,
     observations: np.ndarray,
 ) -> jnp.ndarray:
-    dist = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats},observations)
+    dist = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats},observations,training=False)
     return dist
 
 @partial(jax.jit, static_argnames="actor_apply_fn")
@@ -78,7 +81,7 @@ def eval_actions_jit(
     batch_stats:Any,
     observations: np.ndarray,
 ) -> jnp.ndarray:
-    dist = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats},observations)
+    dist = actor_apply_fn({"params": actor_params,'batch_stats': batch_stats},observations,training=False)
     return dist.mode()
 
 
@@ -111,10 +114,10 @@ def update_critic(
     critic_reduction: str,
 ) -> Tuple[TrainState, Dict[str, float]]:
     # breakpoint()
-    dist,_ = actor.apply_fn({"params": actor.params,"batch_stats":actor.batch_stats}, batch["next_observations"],mutable=["batch_stats"])
+    dist,_ = actor.apply_fn({"params": actor.params,"batch_stats":actor.batch_stats}, batch["next_observations"],training=False,mutable=["batch_stats"])
     next_actions, next_log_probs = dist.sample_and_log_prob(seed=key)
     next_qs,_ = target_critic.apply_fn(
-        {"params": target_critic.params,"batch_stats":target_critic.batch_stats}, batch["next_observations"], next_actions,mutable=["batch_stats"]
+        {"params": target_critic.params,"batch_stats":target_critic.batch_stats}, batch["next_observations"], next_actions,training=False,mutable=["batch_stats"]
     )
     if critic_reduction == "min":
         next_q = next_qs.min(axis=0)
@@ -135,7 +138,7 @@ def update_critic(
 
     def critic_loss_fn(critic_params: Params,batch_stats:Any) -> Tuple[jnp.ndarray, Dict[str, float]]:
         qs,updates = critic.apply_fn(
-            {"params": critic_params,"batch_stats":batch_stats}, batch["observations"], batch["actions"],mutable=["batch_stats"]
+            {"params": critic_params,"batch_stats":batch_stats}, batch["observations"], batch["actions"],training=True,mutable=["batch_stats"]
         )
         critic_loss = ((qs - target_q) ** 2).mean()
         return critic_loss, ({
@@ -176,7 +179,7 @@ def update_actor(
 
 
 
-@functools.partial(jax.jit, static_argnames=("backup_entropy", "critic_reduction"))
+@functools.partial(jax.jit, static_argnames=("backup_entropy", "critic_reduction","augument"))
 def _update_critic_jit(
     rng: PRNGKey,
     actor: TrainState,
@@ -461,15 +464,13 @@ class PixelResNetDrQLearner(Agent):
 
     def update_expert(self, batch: FrozenDict) -> Dict[str, float]:
         (
-            new_rng,
-            new_actor,
-            new_critic,
-            new_target_critic_params,
-            new_temp,
-            info,
+        new_rng,
+        new_critic,
+        new_target_critic_params,
+        info
         ) = _update_critic_jit(
             self._rng,
-            # self._actor,
+            self._actor,
             self._critic,
             self._target_critic_params,
             self._temp,
