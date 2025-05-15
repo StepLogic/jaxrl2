@@ -8,8 +8,8 @@ import jax
 import numpy as np
 
 from jaxrl2.data.dataset import Dataset, DatasetDict, _sample
-from flax.core import frozen_dict
-
+from flax.core import frozen_dict,unfreeze,freeze
+import jax.numpy as jnp
 
 def _init_replay_dict(
         obs_space: gym.Space, capacity: int
@@ -410,3 +410,53 @@ class VariableCapacityBuffer(Dataset):
                 batch[k] =self.dataset_dict[k][indx]
         return frozen_dict.freeze(batch)
 
+
+
+
+# Prioritized Experience Replay implementation
+class PrioritizedReplayBuffer(ReplayBuffer):
+    def __init__(self, observation_space, action_space, capacity, alpha=0.6, beta=0.4):
+        super().__init__(observation_space, action_space, capacity)
+        self.alpha = alpha  # Priority exponent
+        self.beta = beta    # Importance sampling exponent
+        self.priorities = np.ones(capacity, dtype=np.float32)
+        self.max_priority=1.0
+        
+    def insert(self, sample):
+        super().insert(sample)
+        max_priority = self.priorities.max() if self._size > 0 else 1.0
+        self.priorities[self._insert_index] = max_priority
+        
+    def sample(self, batch_size):
+        if self._size == 0:
+            return None
+            
+        # Sample based on priorities
+        probabilities = self.priorities[:self._size] ** self.alpha
+        probabilities /= probabilities.sum()
+        
+        indices = np.random.choice(self._size, batch_size, p=probabilities)
+        weights = (self._size * probabilities[indices]) ** (-self.beta)
+        weights /= weights.max()
+        
+        batch = super().sample(batch_size,indx=indices)
+        batch = unfreeze(batch)
+        batch['weights'] = weights
+        batch['indices'] = indices
+        batch=freeze(batch)
+        return batch
+        
+    def update_priorities(self, indices, td_errors):
+        """Update priorities based on TD errors."""
+        # Convert to numpy for handling within buffer
+        if isinstance(td_errors, jnp.ndarray):
+            td_errors = np.array(td_errors)
+            
+        # Compute new priorities (TD-error with small constant to avoid 0 priority)
+        new_priorities = np.abs(td_errors) + 1e-6
+        
+        # Update stored priorities
+        self.priorities[indices] = new_priorities
+        
+        # Update max priority for new samples
+        self.max_priority = max(self.max_priority, new_priorities.max())

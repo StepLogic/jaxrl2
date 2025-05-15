@@ -21,9 +21,11 @@ def update_critic(
 ) -> Tuple[TrainState, Dict[str, float]]:
     # breakpoint()
     dist = actor.apply_fn({"params": actor.params}, batch["next_observations"])
+    rng, key = jax.random.split(key)
+   
     next_actions, next_log_probs = dist.sample_and_log_prob(seed=key)
     next_qs = target_critic.apply_fn(
-        {"params": target_critic.params}, batch["next_observations"], next_actions
+        {"params": target_critic.params}, batch["next_observations"], next_actions,training=True, rngs={'dropout': rng}
     )
     if critic_reduction == "min":
         next_q = next_qs.min(axis=0)
@@ -44,11 +46,13 @@ def update_critic(
 
     def critic_loss_fn(critic_params: Params) -> Tuple[jnp.ndarray, Dict[str, float]]:
         qs = critic.apply_fn(
-            {"params": critic_params}, batch["observations"], batch["actions"]
+            {"params": critic_params}, batch["observations"], batch["actions"],training=True,rngs={'dropout': rng}
         )
         critic_loss = ((qs - target_q) ** 2).mean()
+        # breakpoint()
         return critic_loss, {
             "critic_loss": critic_loss,
+            "td_errors":jnp.mean(((qs - target_q) ** 2).swapaxes(1,0),axis=-1),
             "q": qs.mean(),
             "target_actor_entropy": -next_log_probs.mean(),
         }

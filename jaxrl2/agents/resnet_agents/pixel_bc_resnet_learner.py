@@ -104,19 +104,6 @@ def _update_jit(
             mutable=['batch_stats']
         )
         log_probs = dist.log_prob(batch["actions"]) 
-        
-        # log_probs = log_probs.mean() 
-        # clipped_log_probs=jnp.clip(log_probs,-2.9,0)
-        # actor_loss = jnp.mean(jnp.square(dist.mode() - batch["actions"]))
-        # actor_loss = -log_probs.mean() 
-        # actor_loss = jnp.mean(jnp.square(dist.mode() - batch["actions"]) / ( 2*jnp.square(dist.stddev()) )) + log_probs.mean()
-        # + jnp.mean(jnp.square(dist.mean() - batch["actions"]))
-        # + 0.1*jnp.mean(jnp.square(dist.mode()-batch["actions"]))
-        # standard_deviation=jnp.mean(dist.stddev(),axis=0)
-        # + jnp.mean(jnp.square(dist.mean() - batch["actions"]))
-        # + 0.1*jnp.mean(jnp.square(dist.mode()-batch["actions"]))
-        # entropy = dist.entropy().mean()
-        # actor_loss = jnp.mean(jnp.square(dist.mode()-batch["actions"])) - entropy
         actor_loss=-log_probs.mean()
         return actor_loss,({"bc_loss": actor_loss},updates)
 

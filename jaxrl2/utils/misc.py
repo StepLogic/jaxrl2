@@ -212,18 +212,21 @@ class Logger:
     def log_training(self, metrics: Dict[str, Any], step: int,prefix=""):
         """Log training metrics to both tensorboard and console."""
         for k, v in metrics.items():
-            self.writer.add_scalar(f"training{prefix}/{k}", np.array(v), step)
+            v=np.mean(np.array([v]))
+            self.writer.add_scalar(f"training{prefix}/{k}", np.mean(np.array([v])), step)
             self.train_metrics[f"{k}{prefix}"] = np.array(v)
     
     def log_eval(self, metrics: Dict[str, Any], step: int):
         """Log evaluation metrics to both tensorboard and console."""
         for k, v in metrics.items():
+            v=np.mean(np.array([v]))
             self.writer.add_scalar(f"evaluation/{k}",np.array(v), step)
             self.eval_metrics[k] = np.array(v)
     
     def log_episode(self, metrics: Dict[str, Any], step: int):
         """Log episode metrics to both tensorboard and console."""
         for k, v in metrics.items():
+            v=np.mean(np.array([v]))
             self.writer.add_scalar(f"episode/{k}", np.array(v), step)
             self.episode_metrics[k] = np.array(v)
     
@@ -235,16 +238,19 @@ class Logger:
         if self.train_metrics:
             print("\nTraining Metrics:")
             for k, v in self.train_metrics.items():
+                v=np.mean(np.array([v]))
                 print(f"  {k:<20} {np.array(v):>10.4f}")
         
         if self.episode_metrics:
             print("\nLatest Episode:")
             for k, v in self.episode_metrics.items():
+                v=np.mean(np.array([v]))
                 print(f"  {k:<20} {np.array(v):>10.4f}")
         
         if self.eval_metrics:
             print("\nLatest Evaluation:")
             for k, v in self.eval_metrics.items():
+                v=np.mean(np.array([v]))
                 print(f"  {k:<20} {np.array(v):>10.4f}")
         
         print("="*80 + "\n")

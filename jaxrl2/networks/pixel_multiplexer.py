@@ -106,7 +106,7 @@ class PixelMultiplexer(nn.Module):
                 #     value
                 # )
 
-                x = self.encoder(name=f"encoder_{key}")(value,train=training)
+                x = self.encoder(name=f"encoder_{key}")(value,training=training)
                 # breakpoint()
                 self.sow('intermediates', 'features', x)
                 x = nn.Dense(self.latent_dim, kernel_init=kernel_init(),bias_init=bias_init(),name=f"encoder_pre_latent")(x)

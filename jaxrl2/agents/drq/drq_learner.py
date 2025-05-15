@@ -82,19 +82,10 @@ def _update_jit(
     actor = _share_encoder(source=critic, target=actor)
 
     rng, key = jax.random.split(rng)
-    # aug_pixels = batched_random_crop(key, batch["observations"]["pixels"])
-    # observations = batch["observations"].copy(add_or_replace={"pixels": aug_pixels})
-    # batch = batch.copy(add_or_replace={"observations": observations})
-    # rng, key = jax.random.split(rng)
-    # aug_next_pixels = batched_random_crop(key, batch["next_observations"]["pixels"])
-    # next_observations = batch["next_observations"].copy(
-    #     add_or_replace={"pixels": aug_next_pixels}
-    # )
-    # batch = batch.copy(add_or_replace={"next_observations": next_observations})
     if augument:
         rng, batch = augment_batch(key, batch,batched_random_crop)
-        # rng, key = jax.random.split(rng)
-        # rng, batch = augment_batch(key, batch,batched_random_cutout)
+        rng, key = jax.random.split(rng)
+        rng, batch = augment_batch(key, batch,batched_random_cutout)
         
     target_critic = critic.replace(params=target_critic_params)
     if not utd_ratio is None:
@@ -183,7 +174,7 @@ class DrQLearner(Agent):
         action_dim = actions.shape[-1]
         # https://github.com/DLR-RM/stable-baselines3/blob/master/stable_baselines3/sac/sac.py
         if target_entropy is None:
-            self.target_entropy=-action_dim
+            self.target_entropy=-action_dim/2
         else:
             self.target_entropy = target_entropy
         # print("target_entropy",self.target_entropy)

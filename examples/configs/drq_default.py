@@ -8,7 +8,7 @@ def get_config():
     config.critic_lr = 3e-4
     config.temp_lr = 3e-4
     config.hidden_dims = (256, 256)
-    config.cnn_features = (32, 64, 128, 256)
+    config.cnn_features = (8, 16, 32, 32)
     config.cnn_filters = (3, 3, 3, 3)
     config.cnn_strides = (2, 2, 2, 2)
     config.cnn_padding = "VALID"
